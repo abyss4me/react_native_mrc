@@ -3,10 +3,9 @@ import * as Font from 'expo-font'; // Add Expo Font
 import { Text, View } from 'react-native';
 import { getAnchorStyle } from '../engine/layoutUtils';
 
-const loadedDynamicFonts = new Set<string>();
 
 export const TextComponent = ({ config, globalScale = 1, parentWidth, parentHeight }: any) => {
-    const [isFontReady, setIsFontReady] = useState(false);
+
     const anchorStyle = getAnchorStyle(config, globalScale, parentWidth, parentHeight);
     
     // Parse font size (remove "px" if it's in the JSON)
@@ -15,43 +14,7 @@ export const TextComponent = ({ config, globalScale = 1, parentWidth, parentHeig
 
     const fontFamily = config.style?.fontFamily;
     // Font URL from JSON (if any)
-    const fontSrc = config.fontSrc;
 
-    useEffect(() => {
-        const loadFont = async () => {
-            // 1. If it's a regular system font or local (loaded in App.tsx)
-            // We just say "ready"
-            if (!fontSrc) {
-                setIsFontReady(true);
-                return;
-            }
-
-            // 2. If the font has been loaded before during this session
-            if (loadedDynamicFonts.has(fontFamily)) {
-                setIsFontReady(true);
-                return;
-            }
-
-            // 3. Load the font from URL
-            try {
-                console.log(`Loading font: ${fontFamily} from ${fontSrc}`);
-                await Font.loadAsync({
-                    [fontFamily]: { uri: fontSrc }
-                });
-
-                loadedDynamicFonts.add(fontFamily); // Add to cache
-                setIsFontReady(true);
-            } catch (e) {
-                console.error("Failed to load font", e);
-                // Even if it fails, set to true to show text with the default font
-                setIsFontReady(true);
-            }
-        };
-
-        loadFont();
-    }, [fontFamily, fontSrc]);
-
-    if (!isFontReady) return null;
 
     // Helper function to scale paddings/margins
     const getScaledValue = (val: any) => val ? (parseInt(val) * globalScale) : undefined;

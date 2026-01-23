@@ -43,7 +43,7 @@ export default class ClientManager {
             this.appController.handleMessage({
                 type: "SET_SCREEN",
                 data: {
-                    screenId: "CONNECT_SCREEN",
+                    screenId: "ENTER_CODE_SCREEN",
                     // Initial state of components
                     components: {
                         "back_icon": { "texture": "https://service.play.works/shared/assets/avatars/8_ball.png" },
