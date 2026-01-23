@@ -7,7 +7,7 @@ import {
 } from '../utils/constants';
 import { ServerMessage, ClientMessage } from '../types/ProtocolTypes';
 
-// Інтерфейс для того, хто керує додатком (NetworkContext)
+// Interface for the application controller (NetworkContext)
 interface AppController {
     handleMessage: (msg: ServerMessage) => void;
     onConnectionEstablished?: () => void;
@@ -25,10 +25,10 @@ export default class ClientManager {
         this.appController = appController;
         this.hostUrl = HOST_SERVER_URL;
 
-        // Ініціалізація ID пристрою
+        // Device ID initialization
         this.getDeviceId();
 
-        // --- MOCK DATA SIMULATION (Для тестування без сервера) ---
+        // --- MOCK DATA SIMULATION (For testing without a server) ---
         if (DEV_MODE) {
             this.runSimulation();
         }
@@ -37,14 +37,14 @@ export default class ClientManager {
     private runSimulation() {
         console.log("⚠️ DEV_MODE: Running simulation sequences...");
 
-        // Симуляція 1: Перехід на екран підключення через 0.5 сек
+        // Simulation 1: Switch to the connection screen after 0.5 sec
         setTimeout(() => {
             console.log("Simulating SET_SCREEN -> CONNECT_SCREEN");
             this.appController.handleMessage({
                 type: "SET_SCREEN",
                 data: {
                     screenId: "CONNECT_SCREEN",
-                    // Початковий стан компонентів
+                    // Initial state of components
                     components: {
                         "back_icon": { "texture": "https://service.play.works/shared/assets/avatars/8_ball.png" },
                         "btn_text": { "content": 200 },
@@ -55,7 +55,7 @@ export default class ClientManager {
             } as ServerMessage);
         }, 500);
 
-        // Симуляція 2: Оновлення тексту через 2.5 сек
+        // Simulation 2: Update text after 2.5 sec
        /* setTimeout(() => {
             console.log("Simulating UPDATE_DATA");
             this.appController.handleMessage({
@@ -95,7 +95,7 @@ export default class ClientManager {
             this.isConnected = true;
             this.clearErrorConnectionTimeout();
             
-            // Відправляємо handshake або ID, якщо потрібно
+            // Send handshake or ID if needed
             // this.sendMessage("HANDSHAKE", { deviceId: this.deviceUid });
 
             if (this.appController.onConnectionEstablished) {
@@ -105,7 +105,7 @@ export default class ClientManager {
 
         this.client.onmessage = (e: WebSocketMessageEvent) => {
             try {
-                // e.data може бути рядком
+                // e.data can be a string
                 const msg = JSON.parse(e.data as string);
                 this.appController.handleMessage(msg);
             } catch (error) {
@@ -116,7 +116,7 @@ export default class ClientManager {
         this.client.onclose = () => {
             console.log("WebSocket Disconnected");
             this.isConnected = false;
-            // Тут можна додати логіку реконекту
+            // Reconnect logic can be added here
         };
 
         this.client.onerror = (e) => {
@@ -162,7 +162,7 @@ export default class ClientManager {
         this.connectionTimeout = setTimeout(() => {
             if (!this.isConnected) {
                 console.warn("Connection timeout reached");
-                // Можна повідомити UI про помилку
+                // Can notify the UI about an error
                 this.appController.handleMessage({ 
                     type: "CONNECTION_ERROR_SCREEN",
                     data: { message: "Server not responding" }

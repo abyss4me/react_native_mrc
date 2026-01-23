@@ -1,15 +1,15 @@
-// Базовий конфіг для будь-якого елемента
+// Base config for any element
 export interface BaseElementConfig {
     type: "button" | "text" | "image" | "container";
     id?: string;
     pos?: { x: number; y: number };
     size?: { w: number; h: number };
-    align?: "center" | "top-left" | "top-right" /* і так далі */;
+    align?: "center" | "top-left" | "top-right" /* and so on */;
     visible?: boolean;
-    style?: Record<string, any>; // Стилі можуть бути гнучкими
+    style?: Record<string, any>; // Styles can be flexible
 }
 
-// Конфіг кнопки
+// Button config
 export interface ButtonConfig extends BaseElementConfig {
     type: "button";
 	id: string;
@@ -19,13 +19,13 @@ export interface ButtonConfig extends BaseElementConfig {
     textureFocused?: string;
     textureDisabled?: string;
     disabled?: boolean;
-    layout?: ElementConfig[]; // Рекурсія (діти)
+    layout?: ElementConfig[]; // Recursion (children)
 }
 
-// Union тип для всіх можливих елементів
-export type ElementConfig = ButtonConfig | BaseElementConfig; // Додай сюди TextConfig, ImageConfig
+// Union type for all possible elements
+export type ElementConfig = ButtonConfig | BaseElementConfig; // Add TextConfig, ImageConfig here
 
-// Конфіг екрану
+// Screen config
 export interface ScreenConfig {
     background?: string;
     layout: ElementConfig[];

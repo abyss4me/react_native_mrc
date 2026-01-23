@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from 'react';
-import ClientManager from '../logic/ClientManager'; // Переконайся, що шлях правильний
-import { ServerMessage, GameState } from '../types/ProtocolTypes'; // Імпорт твоїх типів
+import ClientManager from '../logic/ClientManager'; // Make sure the path is correct
+import { ServerMessage, GameState } from '../types/ProtocolTypes'; // Import your types
 
 interface NetworkContextType {
     client: ClientManager | null;
@@ -20,8 +20,8 @@ export const NetworkProvider: React.FC<Props> = ({ children, onScreenChange }) =
     const [client, setClient] = useState<ClientManager | null>(null);
     const [serverData, setServerData] = useState<GameState>({});
 
-    // 1. Зберігаємо onScreenChange у ref, щоб useEffect не залежав від зміни цієї функції
-    // Це критично важливо, щоб сокет не перестворювався при кожному рендері батька.
+    // 1. Store onScreenChange in a ref so useEffect doesn't depend on this function changing
+    // This is critical to prevent the socket from being recreated on every parent render.
     const onScreenChangeRef = useRef(onScreenChange);
 
     useEffect(() => {
@@ -29,7 +29,7 @@ export const NetworkProvider: React.FC<Props> = ({ children, onScreenChange }) =
     }, [onScreenChange]);
 
     useEffect(() => {
-        // Створюємо інстанс ClientManager
+        // Create a ClientManager instance
         const cm = new ClientManager({
             handleMessage: (msg: ServerMessage) => {
                 
@@ -38,7 +38,7 @@ export const NetworkProvider: React.FC<Props> = ({ children, onScreenChange }) =
                     const { screenId, ...restOfData } = msg.data;
 
                     // A. Reset State (Flush & Replace)
-                    // Беремо все, що прийшло окрім screenId, і робимо це новим станом
+                    // Take everything that came except screenId and make it the new state
                     setServerData(restOfData as GameState);
 
                     // B. Navigate
@@ -56,7 +56,7 @@ export const NetworkProvider: React.FC<Props> = ({ children, onScreenChange }) =
                             ...(msg.data.components || {}) 
                         };
                         
-                        // Глибокий мердж властивостей компонентів
+                        // Deep merge component properties
                         Object.keys(msg.data.components || {}).forEach(key => {
                             if (msg.data.components && msg.data.components[key]) {
                                 updatedComponents[key] = {
@@ -80,13 +80,13 @@ export const NetworkProvider: React.FC<Props> = ({ children, onScreenChange }) =
             }
         });
 
-        // Автоматичний конект при маунті
+        // Auto-connect on mount
         //cm.connect();
         setClient(cm);
 
-        // Cleanup при розмонтуванні компонента (якщо потрібно закрити сокет)
+        // Cleanup on component unmount (if you need to close the socket)
         // return () => cm.disconnect(); 
-    }, []); // Порожній масив = виконується 1 раз при старті
+    }, []); // Empty array = runs once on start
 
     const value = useMemo(() => ({
         client,

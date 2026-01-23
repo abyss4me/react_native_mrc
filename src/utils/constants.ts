@@ -1,21 +1,21 @@
 /**
  * src/utils/constants.ts
- * Глобальні налаштування проекту
+ * Global project settings
  */
 
-// URL вашого WebSocket сервера
-// УВАГА: На реальному Android/iOS пристрої "localhost" не працює.
-// Використовуйте IP адресу вашого ПК, наприклад: "ws://192.168.1.5:8080"
+// Your WebSocket server URL
+// WARNING: "localhost" does not work on a real Android/iOS device.
+// Use your PC's IP address, for example: "ws://192.168.1.5:8080"
 export const HOST_SERVER_URL = "ws://192.168.0.100:8080"; //TODO:
 
-// Ключ для збереження ID пристрою в пам'яті телефону
+// Key for storing the device ID in the phone's memory
 export const DEVICE_ID_STORAGE_KEY = "mp_rc_device_id";
 
-// Час очікування з'єднання (мс)
+// Connection timeout (ms)
 export const CONNECTION_TIMEOUT_DURATION = 3000;
 
-// Режим розробки (вмикає додаткові логи або мок-дані)
+// Development mode (enables additional logs or mock data)
 export const DEV_MODE = true;
 
-// Версія протоколу або додатку
+// Protocol or application version
 export const APP_VERSION = "1.0.0";

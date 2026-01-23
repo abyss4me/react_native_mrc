@@ -1,73 +1,80 @@
-import { ViewStyle } from 'react-native';
+// src/engine/layoutUtils.ts
+import { ViewStyle, Dimensions } from 'react-native';
 
-// Інтерфейс для вхідного конфіга (спрощений)
 interface LayoutConfig {
     pos?: { x: number; y: number };
+    size?: { w: number; h: number };
     align?: string;
+    style?: Record<string, any>;
     [key: string]: any;
 }
 
-export const getAnchorStyle = (config: LayoutConfig, scale: number = 1): ViewStyle => {
-    const { align, pos } = config;
-    const x = (pos?.x || 0) * scale;
-    const y = (pos?.y || 0) * scale;
+export const getAnchorStyle = (
+    config: LayoutConfig,
+    globalScale: number = 1,
+    parentWidth?: number,
+    parentHeight?: number
+): ViewStyle => {
+    const { align = 'top-left', pos = { x: 0, y: 0 }, size, style: customStyle } = config;
+
+    const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+    const containerWidth = parentWidth ?? screenWidth;
+    const containerHeight = parentHeight ?? screenHeight;
+
+    // --- ФІКС: Отримуємо розмір елемента з різних джерел ---
+    // Якщо немає size.w, перевіряємо style.width
+    const rawW = size?.w || (customStyle?.width ? parseInt(String(customStyle.width)) : 0);
+    // Якщо немає size.h, використовуємо fontSize як приблизну висоту для тексту
+    const rawH = size?.h || (customStyle?.height ? parseInt(String(customStyle.height)) : (customStyle?.fontSize ? parseInt(String(customStyle.fontSize)) : 0));
+
+    const elementWidth = rawW * globalScale;
+    const elementHeight = rawH * globalScale;
+
+    const offsetX = (pos?.x || 0) * globalScale;
+    const offsetY = (pos?.y || 0) * globalScale;
 
     const style: ViewStyle = { position: 'absolute' };
 
     switch (align) {
         case 'top-left':
-            style.left = x;
-            style.top = y;
-            break;
-        case 'top-right':
-            style.right = x;
-            style.top = y;
-            break;
-        case 'bottom-left':
-            style.left = x;
-            style.bottom = y;
-            break;
-        case 'bottom-right':
-            style.right = x;
-            style.bottom = y;
-            break;
-        case 'center':
-            style.left = '50%';
-            style.top = '50%';
-            // У React Native центрування через transform робиться інакше, ніж у CSS.
-            // Тут ми зміщуємо точку відліку, але саме зміщення контенту на -50%
-            // краще робити через margin, якщо відомі розміри, або через alignSelf у батька.
-            // Для абсолютної позиції найчастіше використовують такий хак або відомі розміри:
-            style.marginLeft = x;
-            style.marginTop = y;
-            // style.transform = [{ translateX: -50% }] - RN не підтримує % у translate без танців з бубном.
-            // Тому зазвичай для 'center' ми розраховуємо, що компонент сам відцентрує свій вміст,
-            // або використовуємо negative margins у компоненті, якщо знаємо розмір.
+            style.left = offsetX;
+            style.top = offsetY;
             break;
         case 'top-center':
-            style.left = '50%';
-            style.top = y;
-            style.marginLeft = x; 
+            style.left = (containerWidth - elementWidth) / 2 + offsetX;
+            style.top = offsetY;
             break;
-        case 'bottom-center':
-            style.left = '50%';
-            style.bottom = y;
-            style.marginLeft = x;
+        case 'top-right':
+            style.right = offsetX;
+            style.top = offsetY;
             break;
         case 'left-center':
-            style.left = x;
-            style.top = '50%';
-            style.marginTop = y;
+            style.left = offsetX;
+            style.top = (containerHeight - elementHeight) / 2 + offsetY;
+            break;
+        case 'center':
+            style.left = (containerWidth - elementWidth) / 2 + offsetX;
+            style.top = (containerHeight - elementHeight) / 2 + offsetY;
             break;
         case 'right-center':
-            style.right = x;
-            style.top = '50%';
-            style.marginTop = y;
+            style.right = offsetX;
+            style.top = (containerHeight - elementHeight) / 2 + offsetY;
+            break;
+        case 'bottom-left':
+            style.left = offsetX;
+            style.bottom = offsetY;
+            break;
+        case 'bottom-center':
+            style.left = (containerWidth - elementWidth) / 2 + offsetX;
+            style.bottom = offsetY;
+            break;
+        case 'bottom-right':
+            style.right = offsetX;
+            style.bottom = offsetY;
             break;
         default:
-            // Default: top-left logic
-            style.left = x;
-            style.top = y;
+            style.left = offsetX;
+            style.top = offsetY;
     }
 
     return style;

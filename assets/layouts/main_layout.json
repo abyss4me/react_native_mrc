@@ -24,7 +24,7 @@
           "align": "center",
           "pos": { "x": 0, "y": 100 },
           "fontSrc": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/fonts/libre_franklin_bold.ttf",
-          "style": { "textAlign": "center", "color": "white", "fontSize": 60, "width": "100%", "fontFamily": "LibreFranklinBold"}
+          "style": { "textAlign": "center", "color": "white", "fontSize": 40, "width": 1920, "fontFamily": "LibreFranklinBold"}
         },
         {
           "type": "button",
@@ -45,14 +45,14 @@
               "align": "center",
               "pos": { "x": 0, "y": 0 },
               "fontSrc": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/fonts/libre_franklin_bold.ttf",
-              "style": { "textAlign": "center", "color": "white", "fontSize": 40, "width": "100%", "fontFamily": "LibreFranklinBold"}
+              "style": { "textAlign": "center", "color": "white", "fontSize": 40, "width": 490, "fontFamily": "LibreFranklinBold"}
             },
             {
               "type": "image",
               "id": "back_icon",
               "align": "left-center",
               "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/logo.png",
-              "pos": { "x": 0, "y": 0 },
+              "pos": { "x": 50, "y": 0 },
               "size": { "w": 100, "h": 100 }
             }
           ]

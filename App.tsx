@@ -3,32 +3,30 @@ import { View, StyleSheet, StatusBar } from 'react-native';
 import { useFonts } from 'expo-font';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
-import { registerRootComponent } from 'expo';
 
 // Engine Imports
 import { NetworkProvider } from './src/engine/NetworkContext';
 import ScreenRenderer from './src/engine/ScreenRenderer';
 
 // --- 1. CONFIGURATION & MOCK DATA ---
-// Це ваші JSON макети. У майбутньому ви можете завантажувати їх через fetch()
-// або імпортувати з файлу: import localLayouts from './src/layouts/main_layout.json';
+// These are your JSON layouts. In the future, you can load them via fetch()
+// or import from a file: import localLayouts from './src/layouts/main_layout.json';
 import localLayouts from './assets/layouts/main_layout.json';
 
-// Запобігаємо автоматичному прихованню сплеш-скріну
-
+// Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
-    // 1. Стан навігації
+    // 1. Navigation state
     const [currentScreenId, setCurrentScreenId] = useState<string>("CONNECT_SCREEN");
     
-    // 2. Завантаження шрифтів
+    // 2. Font loading
     const [fontsLoaded] = useFonts({
-        // Переконайся, що файл лежить в папці ./assets/fonts/
+        // Make sure the file is in the ./assets/fonts/ folder
         'LibreFranklinBold': require('./assets/fonts/libre_franklin_bold.ttf'),
     });
 
-    // 3. Блокування орієнтації (Landscape)
+    // 3. Lock orientation (Landscape)
     useEffect(() => {
         async function lockOrientation() {
             try {
@@ -40,25 +38,25 @@ export default function App() {
         lockOrientation();
     }, []);
 
-    // 4. Обробка готовності View (хованная сплеш-скріну) TODO:
+    // 4. Handling View readiness (hiding the splash screen) TODO:
     const onLayoutRootView = useCallback(async () => {
         if (fontsLoaded) {
             await SplashScreen.hideAsync();
         }
     }, [fontsLoaded]);
 
-    // Поки шрифти не завантажились - повертаємо null (сплеш ще висить)
+    // While fonts are not loaded - return null (the splash is still visible)
     if (!fontsLoaded) {
         return null;
     }
 
-    // 5. Вибір конфігурації екрану
-    // Fallback на CONNECT_SCREEN якщо прийшов невідомий ID
+    // 5. Selecting screen configuration
+    // Fallback to CONNECT_SCREEN if an unknown ID is received
     const currentConfig = (localLayouts as any).screens[currentScreenId] || (localLayouts as any)["CONNECT_SCREEN"];
-    console.log("=============>", localLayouts)
+
     return (
         <View style={styles.container} onLayout={onLayoutRootView}>
-            {/* Ховаємо статусбар для повного занурення */}
+            {/* Hide the status bar for full immersion */}
             <StatusBar hidden translucent backgroundColor="transparent" />
 
             <NetworkProvider onScreenChange={setCurrentScreenId}>
@@ -71,7 +69,6 @@ export default function App() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'black', // Колір підкладки
+        backgroundColor: 'black', // Background color
     },
 });
-//registerRootComponent(App);

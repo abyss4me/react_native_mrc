@@ -11,9 +11,9 @@ import {
 } from 'react-native';
 import { useNetwork } from '../engine/NetworkContext';
 import { getAnchorStyle } from '../engine/layoutUtils';
-import { ComponentMap } from './index'; // Імпорт мапи компонентів для рекурсії
+import { ComponentMap } from './index'; // Import component map for recursion
 
-// --- Типи (Можна винести в types/LayoutTypes.ts) ---
+// --- Types (Can be moved to types/LayoutTypes.ts) ---
 interface ButtonConfig {
     type: "button";
     id?: string;
@@ -22,62 +22,65 @@ interface ButtonConfig {
     disabled?: boolean;
     visible?: boolean;
 
-    // Текстури
+    // Textures
     texture?: string;
     textureFocused?: string;
     textureDisabled?: string;
 
-    // Розміщення
+    // Placement
     pos?: { x: number; y: number };
     size?: { w: number; h: number };
     rotate?: number;
     align?: string;
 
-    // Стилі
+    // Styles
     style?: Record<string, any>;
 
-    // Вкладені елементи
+    // Nested elements
     layout?: any[];
 }
 
 interface ButtonProps {
     config: ButtonConfig;
     globalScale?: number;
+    parentWidth?: number;
+    parentHeight?: number;
     onInteract?: (type: string, payload: any) => void;
 }
 
-export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, onInteract }) => {
+export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentWidth, parentHeight, onInteract}) => {
     const { serverData } = useNetwork();
     const [isPressed, setIsPressed] = useState(false);
 
-    // 1. Перевірка стану (Disabled)
-    // Сервер може надіслати disabled через serverData або це може бути в початковому config
+    // 1. State Check (Disabled)
+    // The server can send disabled via serverData or it can be in the initial config
     const isDisabled = config.disabled === true;
 
-    // 2. Розрахунок розмірів
+    // 2. Size Calculation
     const width = (config.size?.w || 100) * globalScale;
     const height = (config.size?.h || 100) * globalScale;
 
-    // 3. Вибір текстури
+    // 3. Texture Selection
     const currentTexture = (isDisabled && config.textureDisabled)
         ? config.textureDisabled
         : (isPressed && config.textureFocused ? config.textureFocused : config.texture);
 
-    // 4. Позиціювання
+    // 4. Positioning
     const isAbsolute = !!config.pos || !!config.align;
-    const anchorStyle = isAbsolute ? getAnchorStyle(config, globalScale) : {};
 
-    // 5. Трансформації (React Native використовує масив об'єктів)
+    const anchorStyle = isAbsolute ? getAnchorStyle(config, globalScale, parentWidth, parentHeight ) : {};
+
+    // 5. Transformations (React Native uses an array of objects)
     const transformStyles = [
         { rotate: `${config.rotate || 0}deg` },
-        { scale: isPressed ? 0.95 : 1 } // Легке зменшення при натисканні
+        { scale: isPressed ? 0.95 : 1 } // Slight scaling down on press
     ];
 
-    // --- Обробники подій ---
+    // --- Event Handlers ---
     const handlePressIn = () => {
         if (isDisabled) return;
         setIsPressed(true);
-        // Емуляція натискання клавіші (якщо немає action)
+        // Emulate key press (if there is no action)
         if (!config.action && onInteract && config.id) {
             onInteract("keyDown", { keyCode: config.id });
         }
@@ -86,7 +89,7 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, onInter
     const handlePressOut = () => {
         if (isDisabled) return;
         setIsPressed(false);
-        // Емуляція відпускання клавіші
+        // Emulate key release
         if (!config.action && onInteract && config.id) {
             onInteract("keyUp", { keyCode: config.id });
         }
@@ -94,7 +97,7 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, onInter
 
     const handlePress = () => {
         if (isDisabled) return;
-        // Виконання дії (якщо є action)
+        // Execute action (if there is an action)
         if (config.action && onInteract) {
             onInteract("action", { action: config.action });
         }
@@ -102,13 +105,13 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, onInter
 
     return (
         <TouchableOpacity
-            activeOpacity={1} // Вимикаємо стандартне мигання, бо у нас своя анімація scale/texture
+            activeOpacity={1} // Disable default flash because we have our own scale/texture animation
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             onPress={handlePress}
             disabled={isDisabled}
             style={[
-                anchorStyle as ViewStyle, // casting для TS
+                anchorStyle as ViewStyle, // casting for TS
                 {
                     width,
                     height,
@@ -117,60 +120,60 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, onInter
                     justifyContent: 'center',
                     alignItems: 'center',
                     transform: transformStyles,
-                    // Додаємо кастомні стилі з JSON, якщо вони сумісні з RN
+                    // Add custom styles from JSON if they are compatible with RN
                     ...(config.style as ViewStyle)
                 }
             ]}
         >
-            {/* A. Фон-картинка (аналог backgroundImage) */}
+            {/* A. Background image (analogous to backgroundImage) */}
             {currentTexture && (
                 <Image
                     source={{ uri: currentTexture }}
-                    style={StyleSheet.absoluteFill} // Розтягує на весь розмір кнопки
-                    resizeMode="stretch" // Або 'contain', залежно від дизайну
+                    style={StyleSheet.absoluteFill} // Stretches to the full size of the button
+                    resizeMode="stretch" // Or 'contain', depending on the design
                 />
             )}
 
-            {/* B. Простий текст (якщо немає layout) */}
+            {/* B. Simple text (if there is no layout) */}
             {!config.layout && config.content && (
                 <Text style={{
                     color: config.style?.color || 'white',
                     fontSize: config.style?.fontSize ? (parseInt(config.style.fontSize) * globalScale) : (20 * globalScale),
                     fontWeight: 'bold',
-                    fontFamily: 'LibreFranklinBold', // Переконайся, що шрифт завантажено в App.tsx
+                    fontFamily: 'LibreFranklinBold', // Make sure the font is loaded in App.tsx
                     textAlign: 'center',
-                    // Тінь тексту в RN
+                    // Text shadow in RN
                     textShadowColor: 'rgba(0, 0, 0, 0.8)',
                     textShadowOffset: { width: 1, height: 1 },
                     textShadowRadius: 2,
-                    // Компенсація повороту контейнера, щоб текст був рівним (опціонально)
+                    // Compensate for container rotation to keep text level (optional)
                     transform: [{ rotate: `-${config.rotate || 0}deg` }]
                 }}>
                     {config.content}
                 </Text>
             )}
 
-            {/* C. Вкладені елементи (Recursion) */}
+            {/* C. Nested elements (Recursion) */}
             {config.layout && config.layout.map((el: any, i: number) => {
-                // 1. Перевірка видимості
+                // 1. Visibility check
                 if (el.visible === false) return null;
 
-                // 2. Отримання компонента
+                // 2. Get component
                 const Component = ComponentMap[el.type];
                 if (!Component) return null;
 
                 const childConfig = { ...el };
 
-                // 3. Ін'єкція даних з сервера (Data Binding)
-                // Якщо сервер надіслав оновлення для цього ID
+                // 3. Data injection from the server (Data Binding)
+                // If the server sent an update for this ID
                 if (serverData?.components?.[childConfig.id]) {
                     Object.assign(childConfig, serverData.components[childConfig.id]);
                 }
 
-                // 4. Fallback для старої логіки (прості значення)
+                // 4. Fallback for old logic (simple values)
                 if (serverData && childConfig.id && serverData[childConfig.id] !== undefined) {
                      if (childConfig.type === 'text') childConfig.content = serverData[childConfig.id];
-                     if (childConfig.type === 'image') childConfig.src = serverData[childConfig.id];
+                     if (childConfig.type === 'image') childConfig.texture = serverData[childConfig.id];
                 }
 
                 return (
@@ -179,6 +182,8 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, onInter
                         config={childConfig}
                         globalScale={globalScale}
                         onInteract={onInteract}
+                        parentWidth={width}
+                        parentHeight={height}
                     />
                 );
             })}

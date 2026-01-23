@@ -2,8 +2,8 @@ import React from 'react';
 import { Image, View, StyleSheet } from 'react-native';
 import { getAnchorStyle } from '../engine/layoutUtils';
 
-export const ImageComponent = ({ config, globalScale = 1 }: any) => {
-    const anchorStyle = getAnchorStyle(config, globalScale);
+export const ImageComponent = ({ config, globalScale = 1, parentWidth, parentHeight }: any) => {
+    const anchorStyle = getAnchorStyle(config, globalScale, parentWidth, parentHeight);
     const width = (config.size?.w || 100) * globalScale;
     const height = (config.size?.h || 100) * globalScale;
 

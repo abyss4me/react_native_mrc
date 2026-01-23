@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNetwork } from '../engine/NetworkContext';
 import { getAnchorStyle } from '../engine/layoutUtils';
-import { ComponentMap } from './index'; // Циклічний імпорт вирішується через index.ts
+import { ComponentMap } from './index'; // Circular import is resolved via index.ts
 
 export const Container = ({ config, globalScale = 1, onInteract }: any) => {
     const { serverData } = useNetwork();
@@ -12,26 +12,26 @@ export const Container = ({ config, globalScale = 1, onInteract }: any) => {
     const width = (config.size?.w || 0) * globalScale;
     const height = (config.size?.h || 0) * globalScale;
 
-    // Трансформації в RN - це масив об'єктів
+    // Transformations in RN are an array of objects
     const transform = [];
     if (config.rotate) transform.push({ rotate: `${config.rotate}deg` });
-    // Scale вже враховано в width/height і globalScale,
-    // але якщо контейнер треба скейлити додатково:
+    // Scale is already factored into width/height and globalScale,
+    // but if the container needs additional scaling:
     // transform.push({ scale: 1 });
 
     return (
         <View style={[
             anchorStyle,
             {
-                width: width || undefined, // undefined дозволяє дітям розтягувати контейнер
+                width: width || undefined, // undefined allows children to stretch the container
                 height: height || undefined,
                 position: 'absolute',
-                // Обробка прозорості та бекграунду контейнера
+                // Handling container opacity and background
                 backgroundColor: config.style?.backgroundColor || 'transparent',
                 opacity: config.style?.opacity ?? 1,
                 transform: transform.length > 0 ? transform : undefined,
 
-                // Flex поведінка, якщо вказана в JSON
+                // Flex behavior if specified in JSON
                 flexDirection: config.style?.flexDirection || 'column',
                 justifyContent: config.style?.justifyContent,
                 alignItems: config.style?.alignItems,
@@ -43,12 +43,12 @@ export const Container = ({ config, globalScale = 1, onInteract }: any) => {
 
                 const childConfig = { ...el };
 
-                // Ін'єкція даних з сервера (Data Binding)
+                // Data injection from the server (Data Binding)
                 if (serverData?.components?.[childConfig.id]) {
                     Object.assign(childConfig, serverData.components[childConfig.id]);
                 }
                 
-                // Старий формат байндінгу (для сумісності)
+                // Old binding format (for compatibility)
                 if (childConfig.id && serverData?.[childConfig.id]) {
                      if(childConfig.type === 'text') childConfig.content = serverData[childConfig.id];
                      if(childConfig.type === 'image') childConfig.src = serverData[childConfig.id];
@@ -60,6 +60,8 @@ export const Container = ({ config, globalScale = 1, onInteract }: any) => {
                         config={childConfig}
                         globalScale={globalScale}
                         onInteract={onInteract}
+                        parentWidth={width}
+                        parentHeight={height}
                     />
                 );
             })}

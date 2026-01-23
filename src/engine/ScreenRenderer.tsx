@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, ImageBackground, StyleSheet, useWindowDimensions } from 'react-native';
-import { ComponentMap } from '../components'; // Імпортуємо мапу компонентів
+import { ComponentMap } from '../components'; // Import the component map
 import { useNetwork } from './NetworkContext';
 
-// Рекурсивна функція для ін'єкції даних
+// Recursive function for data injection
 const recursiveProcessConfig = (rawConfig: any, serverData: any): any => {
-    // 1. Клонуємо конфіг
+    // 1. Clone the config
     const finalConfig = { ...rawConfig };
 
-    // 2. Мерджимо дані для цього ID
+    // 2. Merge data for this ID
     if (finalConfig.id && serverData.components && serverData.components[finalConfig.id]) {
         const updates = serverData.components[finalConfig.id];
         Object.assign(finalConfig, updates);
     }
 
-    // 3. Рекурсія для дітей
+    // 3. Recurse for children
     if (finalConfig.layout && Array.isArray(finalConfig.layout)) {
         finalConfig.layout = finalConfig.layout.map((child: any) =>
             recursiveProcessConfig(child, serverData)
@@ -25,47 +25,53 @@ const recursiveProcessConfig = (rawConfig: any, serverData: any): any => {
 };
 
 interface ScreenRendererProps {
-    screenConfig: any; // Тип ScreenConfig з ProtocolTypes
+    screenConfig: any; // ScreenConfig type from ProtocolTypes
 }
 
 const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig }) => {
     const { serverData, sendMessage } = useNetwork();
-    console.log("🎨 RENDERER: Config received:", screenConfig); // <--- LOG 1
 
-    // 1. Отримуємо розміри екрану телефону
+    // 1. Get phone screen dimensions
     const { width, height } = useWindowDimensions();
 
-    // 2. Розраховуємо Scale.
-    // Припускаємо, що базовий дизайн намальований для ширини 1000px (або інше значення з твого макету)
-    // Якщо телефон в landscape (ширина > висоти), беремо ширину як основу.
-    const BASE_DESIGN_WIDTH = 900;
-    const uiScale = width / BASE_DESIGN_WIDTH;
+    // 2. Calculate Scale.
+    // Assume the base design is drawn for a width of 1000px (or another value from your layout)
+    // If the phone is in landscape (width > height), use width as the basis.
+    const BASE_DESIGN_WIDTH = 1920;
+    const BASE_DESIGN_HEIGHT = 1080;
 
-    // Якщо конфігу немає, нічого не рендеримо або показуємо лоадер
+    // Scale proportionally
+    const scaleX = width / BASE_DESIGN_WIDTH;
+    const scaleY = height / BASE_DESIGN_HEIGHT;
+
+    // Use the minimum scale to maintain aspect ratio
+    const uiScale = Math.min(scaleX, scaleY);
+
+    // If there's no config, render nothing or show a loader
     if (!screenConfig) {
-        return <View style={styles.container} />; // Чорний екран
+        return <View style={styles.container} />; // Black screen
     }
 
     const handleAction = (type: string, payload: any) => {
-        // Прокидаємо події на сервер
+        // Forward events to the server
         sendMessage(type, payload);
     };
 
     const renderElement = (el: any, index: number) => {
-        // --- 1. Обробка даних (Мердж стану з сервера) ---
+        // --- 1. Data Processing (Merge state from server) ---
         const finalConfig = recursiveProcessConfig(el, serverData);
 
-        // --- 2. Перевірка видимості ---
+        // --- 2. Visibility Check ---
         if (finalConfig.visible === false) return null;
 
-        // --- 3. Вибір компонента ---
+        // --- 3. Component Selection ---
         const Component = ComponentMap[finalConfig.type];
         if (!Component) {
             console.warn(`Unknown component type: ${finalConfig.type}`);
             return null;
         }
 
-        // --- 4. Старі байндінги (сумісність) ---
+        // --- 4. Old Bindings (compatibility) ---
         if (finalConfig.bindContent && serverData[finalConfig.bindContent] !== undefined) {
             finalConfig.content = serverData[finalConfig.bindContent];
         }
@@ -80,9 +86,9 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig }) => {
         );
     };
 
-    // Обробка бекграунду. Якщо це URL з http - React Native зрозуміє.
-    // Якщо це локальний шлях типу "/assets/bg.jpg" - це може не спрацювати в Native без змін.
-    // Для початку припускаємо, що там повний URL.
+    // Background handling. If it's a URL with http - React Native will understand.
+    // If it's a local path like "/assets/bg.jpg" - it might not work in Native without changes.
+    // For now, assume it's a full URL.
     const bgSource = screenConfig.background
         ? { uri: screenConfig.background }
         : null;

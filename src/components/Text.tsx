@@ -1,49 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import * as Font from 'expo-font'; // Додаємо Expo Font
+import * as Font from 'expo-font'; // Add Expo Font
 import { Text, View } from 'react-native';
 import { getAnchorStyle } from '../engine/layoutUtils';
 
 const loadedDynamicFonts = new Set<string>();
 
-export const TextComponent = ({ config, globalScale = 1 }: any) => {
+export const TextComponent = ({ config, globalScale = 1, parentWidth, parentHeight }: any) => {
     const [isFontReady, setIsFontReady] = useState(false);
-    const anchorStyle = getAnchorStyle(config, globalScale);
+    const anchorStyle = getAnchorStyle(config, globalScale, parentWidth, parentHeight);
     
-    // Парсимо розмір шрифту (прибираємо "px" якщо він там є в JSON)
+    // Parse font size (remove "px" if it's in the JSON)
     const rawFontSize = config.style?.fontSize ? parseInt(String(config.style.fontSize)) : 24;
     const fontSize = rawFontSize * globalScale;
 
     const fontFamily = config.style?.fontFamily;
-    // URL шрифту з JSON (якщо є)
+    // Font URL from JSON (if any)
     const fontSrc = config.fontSrc;
 
     useEffect(() => {
         const loadFont = async () => {
-            // 1. Якщо це звичайний системний шрифт або локальний (завантажений в App.tsx)
-            // Ми просто кажемо "готово"
+            // 1. If it's a regular system font or local (loaded in App.tsx)
+            // We just say "ready"
             if (!fontSrc) {
                 setIsFontReady(true);
                 return;
             }
 
-            // 2. Якщо шрифт вже завантажували раніше під час цієї сесії
+            // 2. If the font has been loaded before during this session
             if (loadedDynamicFonts.has(fontFamily)) {
                 setIsFontReady(true);
                 return;
             }
 
-            // 3. Завантажуємо шрифт з URL
+            // 3. Load the font from URL
             try {
                 console.log(`Loading font: ${fontFamily} from ${fontSrc}`);
                 await Font.loadAsync({
                     [fontFamily]: { uri: fontSrc }
                 });
 
-                loadedDynamicFonts.add(fontFamily); // Додаємо в кеш
+                loadedDynamicFonts.add(fontFamily); // Add to cache
                 setIsFontReady(true);
             } catch (e) {
                 console.error("Failed to load font", e);
-                // Навіть якщо впало, ставимо true, щоб показати текст дефолтним шрифтом
+                // Even if it fails, set to true to show text with the default font
                 setIsFontReady(true);
             }
         };
@@ -53,7 +53,7 @@ export const TextComponent = ({ config, globalScale = 1 }: any) => {
 
     if (!isFontReady) return null;
 
-    // Допоміжна функція для скейлу відступів
+    // Helper function to scale paddings/margins
     const getScaledValue = (val: any) => val ? (parseInt(val) * globalScale) : undefined;
 
     return (
@@ -64,7 +64,7 @@ export const TextComponent = ({ config, globalScale = 1 }: any) => {
                 width: getScaledValue(config.style?.width),
                 height: getScaledValue(config.style?.height),
                 padding: getScaledValue(config.style?.padding),
-                // Flexbox для центрування тексту всередині блоку
+                // Flexbox to center text within the block
                 justifyContent: config.style?.justifyContent || 'center', 
                 alignItems: config.style?.alignItems || 'center',
                 // opacity
@@ -72,16 +72,16 @@ export const TextComponent = ({ config, globalScale = 1 }: any) => {
             }
         ]}>
             <Text
-                // numberOfLines={1} емулює whiteSpace: 'nowrap'
+                // numberOfLines={1} emulates whiteSpace: 'nowrap'
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 style={{
                     color: config.style?.color || 'white',
                     fontSize: fontSize,
-                    fontFamily: fontFamily, // Має бути завантажений в App.tsx
+                    fontFamily: fontFamily, // Must be loaded in App.tsx
                     fontWeight: config.style?.fontWeight === 'bold' ? 'bold' : 'normal',
                     textAlign: config.style?.textAlign || 'center',
-                    includeFontPadding: false, // Прибирає зайві відступи Android
+                    includeFontPadding: false, // Removes extra padding on Android
                 }}
             >
                 {config.content}

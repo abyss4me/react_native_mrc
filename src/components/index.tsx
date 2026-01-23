@@ -4,7 +4,7 @@ import { Container } from './Container';
 import { ImageComponent } from './Image';
 import { TextComponent } from './Text';
 
-// Типізована мапа для використання в Container та ScreenRenderer
+// Typed map for use in Container and ScreenRenderer
 export const ComponentMap: Record<string, React.FC<any>> = {
     button: Button,
     keyboard: Keyboard,
