@@ -3,14 +3,9 @@
   "fonts": {
     "LibreFranklinBold": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/fonts/libre_franklin_bold.ttf"
   },
-  "splashScreen": "https://service.play.works/stage/shared/assets/splash/bg.jpg",
-  "screenOrientation": "landscape",
-  "initialScreen": "CONNECT_SCREEN",
-  "waitingScreen": "WAITING_SCREEN",
   "screens": {
     "CONNECT_SCREEN": {
       "background": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/background.jpg",
-      "interactive": true,
       "layout": [
         {
           "type": "image",
@@ -140,7 +135,9 @@
             "color": "white",
             "fontSize": 60,
             "fontWeight": "bold",
-            "textShadow": "2px 2px 4px #000000"
+            "textShadowColor": "#000000",
+            "textShadowOffset": { "width": 2, "height": 2 },
+            "textShadowRadius": 4
           }
         },
         {
@@ -205,7 +202,10 @@
             "fontSize": 40,
             "fontFamily": "Arial, sans-serif",
             "fontWeight": "bold",
-            "textShadow": "0px 2px 4px rgba(0,0,0,0.5)"
+
+            "textShadowColor": "rgba(0, 0, 0, 0.6)",
+            "textShadowOffset": { "width": 0, "height": 3 },
+            "textShadowRadius": 4
           }
         },
         {
@@ -221,11 +221,10 @@
             "color": "white",
             "fontSize": 60,
             "fontWeight": "bold",
-            "display": "flex",
             "alignItems": "center",
             "justifyContent": "center",
-            "border": "none",
-            "borderRadius": "5px"
+            "borderWidth": 0,
+            "borderRadius": 5
           }
         },
         {

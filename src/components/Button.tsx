@@ -137,15 +137,10 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
             {/* B. Simple text (if there is no layout) */}
             {!config.layout && config.content && (
                 <Text style={{
+                    ...config.style,
                     color: config.style?.color || 'white',
                     fontSize: config.style?.fontSize ? (parseInt(config.style.fontSize) * globalScale) : (20 * globalScale),
-                    fontWeight: 'bold',
-                    fontFamily: 'LibreFranklinBold', // Make sure the font is loaded in App.tsx
-                    textAlign: 'center',
-                    // Text shadow in RN
-                    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-                    textShadowOffset: { width: 1, height: 1 },
-                    textShadowRadius: 2,
+
                     // Compensate for container rotation to keep text level (optional)
                     transform: [{ rotate: `-${config.rotate || 0}deg` }]
                 }}>

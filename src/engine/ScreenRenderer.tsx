@@ -60,7 +60,6 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig }) => {
     const renderElement = (el: any, index: number) => {
         // --- 1. Data Processing (Merge state from server) ---
         const finalConfig = recursiveProcessConfig(el, serverData);
-
         // --- 2. Visibility Check ---
         if (finalConfig.visible === false) return null;
 
@@ -69,11 +68,6 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig }) => {
         if (!Component) {
             console.warn(`Unknown component type: ${finalConfig.type}`);
             return null;
-        }
-
-        // --- 4. Old Bindings (compatibility) ---
-        if (finalConfig.bindContent && serverData[finalConfig.bindContent] !== undefined) {
-            finalConfig.content = serverData[finalConfig.bindContent];
         }
 
         return (
@@ -89,9 +83,7 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig }) => {
     // Background handling. If it's a URL with http - React Native will understand.
     // If it's a local path like "/assets/bg.jpg" - it might not work in Native without changes.
     // For now, assume it's a full URL.
-    const bgSource = screenConfig.background
-        ? { uri: screenConfig.background }
-        : null;
+    const bgSource = screenConfig.background ? { uri: screenConfig.background } : null;
 
     return (
         <View style={styles.container}>

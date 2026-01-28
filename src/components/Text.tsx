@@ -12,7 +12,7 @@ export const TextComponent = ({ config, globalScale = 1, parentWidth, parentHeig
     const rawFontSize = config.style?.fontSize ? parseInt(String(config.style.fontSize)) : 24;
     const fontSize = rawFontSize * globalScale;
 
-    const fontFamily = config.style?.fontFamily;
+    const fontFamily = config.style?.fontFamily || 'Arial';
     // Font URL from JSON (if any)
 
 
@@ -44,7 +44,8 @@ export const TextComponent = ({ config, globalScale = 1, parentWidth, parentHeig
                     fontFamily: fontFamily, // Must be loaded in App.tsx
                     fontWeight: config.style?.fontWeight === 'bold' ? 'bold' : 'normal',
                     textAlign: config.style?.textAlign || 'center',
-                    includeFontPadding: false, // Removes extra padding on Android
+                    includeFontPadding: false, // Removes extra padding on Android,
+                    ...config.style,
                 }}
             >
                 {config.content}
