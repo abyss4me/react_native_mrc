@@ -26,9 +26,10 @@ const recursiveProcessConfig = (rawConfig: any, serverData: any): any => {
 
 interface ScreenRendererProps {
     screenConfig: any; // ScreenConfig type from ProtocolTypes
+    globalBackground?: any;
 }
 
-const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig }) => {
+const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig, globalBackground }) => {
     const { serverData, sendMessage } = useNetwork();
 
     // 1. Get phone screen dimensions
@@ -80,10 +81,33 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig }) => {
         );
     };
 
-    // Background handling. If it's a URL with http - React Native will understand.
-    // If it's a local path like "/assets/bg.jpg" - it might not work in Native without changes.
-    // For now, assume it's a full URL.
-    const bgSource = screenConfig.background ? { uri: screenConfig.background } : null;
+    // --- Background Logic ---
+    // Priority: Screen-specific > Global > Fallback
+    let bgSource = null;
+    let bgColor = '#000'; // Default fallback
+
+    const screenBg = screenConfig.background;
+    const globalBg = globalBackground;
+
+    if (screenBg) {
+        if (typeof screenBg === 'string' && screenBg.startsWith('http')) {
+            bgSource = { uri: screenBg };
+        } else if (typeof screenBg === 'object' && screenBg.texture) {
+            bgSource = { uri: screenBg.texture };
+        } else if (typeof screenBg === 'string') {
+            // Potentially a color string
+            bgColor = screenBg;
+        }
+    } else if (globalBg) {
+        if (typeof globalBg === 'string' && globalBg.startsWith('http')) {
+            bgSource = { uri: globalBg };
+        } else if (typeof globalBg === 'object' && globalBg.texture) {
+            bgSource = { uri: globalBg.texture };
+        } else if (typeof globalBg === 'string') {
+            bgColor = globalBg;
+        }
+    }
+
 
     return (
         <View style={styles.container}>
@@ -96,7 +120,7 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig }) => {
                      {screenConfig.layout.map((el: any, i: number) => renderElement(el, i))}
                 </ImageBackground>
             ) : (
-                <View style={[styles.background, { backgroundColor: screenConfig.backgroundColor || '#000' }]}>
+                <View style={[styles.background, { backgroundColor: bgColor }]}>
                      {screenConfig.layout.map((el: any, i: number) => renderElement(el, i))}
                 </View>
             )}

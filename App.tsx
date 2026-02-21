@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, StatusBar, Text, useWindowDimensions } from 'react-native';
-import { useFonts } from 'expo-font';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -9,6 +8,7 @@ import { NetworkProvider } from './src/engine/NetworkContext';
 import ScreenRenderer from './src/engine/ScreenRenderer';
 import { preloadAssets } from './src/utils/AssetsLoader';
 import { preloadRemoteFonts } from './src/utils/FontLoader';
+import { setOrientation } from './src/utils/OrientationManager';
 
 // --- 1. CONFIGURATION & MOCK DATA ---
 // These are your JSON layouts. In the future, you can load them via fetch()
@@ -73,6 +73,7 @@ export default function App() {
     // 5. Selecting screen configuration
     // Fallback to CONNECT_SCREEN if an unknown ID is received
     const currentConfig = (localLayouts as any).screens[currentScreenId] || (localLayouts as any)["CONNECT_SCREEN"];
+    const globalBackground = (localLayouts as any).background;
 
     return (
         <View style={styles.container} onLayout={() => {}}>
@@ -87,7 +88,7 @@ export default function App() {
             )}
             {!isPortrait && (
                 <NetworkProvider onScreenChange={setCurrentScreenId}>
-                    <ScreenRenderer screenConfig={currentConfig} />
+                    <ScreenRenderer screenConfig={currentConfig} globalBackground={globalBackground} />
                 </NetworkProvider>
             )}
         </View>

@@ -3,7 +3,7 @@ import {
     View,
     Text,
     Image,
-    TouchableOpacity,
+    Pressable, // Replaced TouchableOpacity with Pressable
     StyleSheet,
     ViewStyle,
     TextStyle,
@@ -11,9 +11,16 @@ import {
 } from 'react-native';
 import { useNetwork } from '../engine/NetworkContext';
 import { getAnchorStyle } from '../engine/layoutUtils';
-import { ComponentMap } from './index'; // Import component map for recursion
+import { ComponentMap } from './index';
 
-// --- Types (Can be moved to types/LayoutTypes.ts) ---
+// --- Types ---
+// Add an interface for configuring a specific state
+interface ButtonStateConfig {
+    texture?: string;
+    scale?: number;
+    style?: ViewStyle | TextStyle | ImageStyle; // Additional styles for the state (e.g. opacity, tintColor)
+}
+
 interface ButtonConfig {
     type: "button";
     id?: string;
@@ -21,19 +28,22 @@ interface ButtonConfig {
     content?: string;
     disabled?: boolean;
     visible?: boolean;
-
-    // Textures
     texture?: string;
-    textureFocused?: string;
-    textureDisabled?: string;
+
+    // NEW: State-Driven UI instead of flat textures
+    states?: {
+        normal?: ButtonStateConfig;
+        pressed?: ButtonStateConfig;
+        disabled?: ButtonStateConfig;
+    };
 
     // Placement
-    pos?: { x: number; y: number };
+    position?: { x: number; y: number };
     size?: { w: number; h: number };
     rotate?: number;
-    align?: string;
+    anchor?: string;
 
-    // Styles
+    // Styles (Base styles that are always applied)
     style?: Record<string, any>;
 
     // Nested elements
@@ -48,39 +58,50 @@ interface ButtonProps {
     onInteract?: (type: string, payload: any) => void;
 }
 
-export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentWidth, parentHeight, onInteract}) => {
+export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentWidth, parentHeight, onInteract }) => {
     const { serverData } = useNetwork();
     const [isPressed, setIsPressed] = useState(false);
 
     // 1. State Check (Disabled)
-    // The server can send disabled via serverData or it can be in the initial config
     const isDisabled = config.disabled === true;
 
     // 2. Size Calculation
     const width = (config.size?.w || 100) * globalScale;
     const height = (config.size?.h || 100) * globalScale;
 
-    // 3. Texture Selection
-    const currentTexture = (isDisabled && config.textureDisabled)
-        ? config.textureDisabled
-        : (isPressed && config.textureFocused ? config.textureFocused : config.texture);
+    // NEW: 3. Extract state configurations (with a fallback to empty objects)
+    const { normal = {}, pressed = {}, disabled = {} } = config.states || {};
+
+    // Determine the ACTIVE state
+    let activeStateConfig = normal;
+    if (isDisabled) {
+        activeStateConfig = disabled;
+    } else if (isPressed) {
+        activeStateConfig = pressed;
+    }
+
+    // Get values from the active state
+    const currentTexture = activeStateConfig.texture || config.texture;
+    // If the state has a scale - use it, otherwise the default effect (0.95 for pressed, 1 for others)
+    const activeScale = activeStateConfig.scale !== undefined
+        ? activeStateConfig.scale
+        : (isPressed && !isDisabled ? 0.95 : 1);
+    const activeStateStyle = activeStateConfig.style || {};
 
     // 4. Positioning
-    const isAbsolute = !!config.pos || !!config.align;
+    const isAbsolute = !!config.position || !!config.anchor;
+    const anchorStyle = isAbsolute ? getAnchorStyle(config, globalScale, parentWidth, parentHeight) : {};
 
-    const anchorStyle = isAbsolute ? getAnchorStyle(config, globalScale, parentWidth, parentHeight ) : {};
-
-    // 5. Transformations (React Native uses an array of objects)
+    // 5. Transformations
     const transformStyles = [
         { rotate: `${config.rotate || 0}deg` },
-        { scale: isPressed ? 0.95 : 1 } // Slight scaling down on press
+        { scale: activeScale }
     ];
 
     // --- Event Handlers ---
     const handlePressIn = () => {
         if (isDisabled) return;
         setIsPressed(true);
-        // Emulate key press (if there is no action)
         if (!config.action && onInteract && config.id) {
             onInteract("keyDown", { keyCode: config.id });
         }
@@ -89,7 +110,6 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
     const handlePressOut = () => {
         if (isDisabled) return;
         setIsPressed(false);
-        // Emulate key release
         if (!config.action && onInteract && config.id) {
             onInteract("keyUp", { keyCode: config.id });
         }
@@ -97,78 +117,71 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
 
     const handlePress = () => {
         if (isDisabled) return;
-        // Execute action (if there is an action)
         if (config.action && onInteract) {
             onInteract("action", { action: config.action });
         }
     };
 
     return (
-        <TouchableOpacity
-            activeOpacity={1} // Disable default flash because we have our own scale/texture animation
+        <Pressable
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             onPress={handlePress}
             disabled={isDisabled}
             style={[
-                anchorStyle as ViewStyle, // casting for TS
+                anchorStyle as ViewStyle,
                 {
                     width,
                     height,
                     position: isAbsolute ? 'absolute' : 'relative',
-                    opacity: (isDisabled && !config.textureDisabled) ? 0.5 : 1,
                     justifyContent: 'center',
                     alignItems: 'center',
                     transform: transformStyles,
-                    // Add custom styles from JSON if they are compatible with RN
-                    ...(config.style as ViewStyle)
-                }
+                },
+                config.style as ViewStyle, // Base styles
+                activeStateStyle as ViewStyle // Override active state styles (e.g. opacity: 0.5 for disabled)
             ]}
         >
-            {/* A. Background image (analogous to backgroundImage) */}
+            {/* A. Background texture */}
             {currentTexture && (
                 <Image
                     source={{ uri: currentTexture }}
-                    style={StyleSheet.absoluteFill} // Stretches to the full size of the button
-                    resizeMode="stretch" // Or 'contain', depending on the design
+                    style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
+                    resizeMode={config.style?.objectFit || "stretch"}
                 />
             )}
 
             {/* B. Simple text (if there is no layout) */}
             {!config.layout && config.content && (
-                <Text style={{
-                    ...config.style,
-                    color: config.style?.color || 'white',
-                    fontSize: config.style?.fontSize ? (parseInt(config.style.fontSize) * globalScale) : (20 * globalScale),
-
-                    // Compensate for container rotation to keep text level (optional)
-                    transform: [{ rotate: `-${config.rotate || 0}deg` }]
-                }}>
+                <Text style={[
+                    config.style,
+                    activeStateStyle, // Text can also change color depending on the state
+                    {
+                        color: activeStateStyle.color || config.style?.color || 'white',
+                        fontSize: config.style?.fontSize ? (parseInt(config.style.fontSize) * globalScale) : (20 * globalScale),
+                        transform: [{ rotate: `-${config.rotate || 0}deg` }]
+                    }
+                ]}>
                     {config.content}
                 </Text>
             )}
 
             {/* C. Nested elements (Recursion) */}
             {config.layout && config.layout.map((el: any, i: number) => {
-                // 1. Visibility check
                 if (el.visible === false) return null;
 
-                // 2. Get component
                 const Component = ComponentMap[el.type];
                 if (!Component) return null;
 
                 const childConfig = { ...el };
 
-                // 3. Data injection from the server (Data Binding)
-                // If the server sent an update for this ID
                 if (serverData?.components?.[childConfig.id]) {
                     Object.assign(childConfig, serverData.components[childConfig.id]);
                 }
 
-                // 4. Fallback for old logic (simple values)
                 if (serverData && childConfig.id && serverData[childConfig.id] !== undefined) {
-                     if (childConfig.type === 'text') childConfig.content = serverData[childConfig.id];
-                     if (childConfig.type === 'image') childConfig.texture = serverData[childConfig.id];
+                    if (childConfig.type === 'text') childConfig.content = serverData[childConfig.id];
+                    if (childConfig.type === 'image') childConfig.texture = serverData[childConfig.id];
                 }
 
                 return (
@@ -179,9 +192,11 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
                         onInteract={onInteract}
                         parentWidth={width}
                         parentHeight={height}
+                        // Optional: you can pass the current state down so that children can react to it
+                        // parentState={isDisabled ? 'disabled' : isPressed ? 'pressed' : 'normal'}
                     />
                 );
             })}
-        </TouchableOpacity>
+        </Pressable>
     );
 };

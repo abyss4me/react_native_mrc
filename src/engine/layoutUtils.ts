@@ -2,9 +2,9 @@
 import { ViewStyle, Dimensions } from 'react-native';
 
 interface LayoutConfig {
-    pos?: { x: number; y: number };
+    position?: { x: number; y: number };
     size?: { w: number; h: number };
-    align?: string;
+    anchor?: string;
     style?: Record<string, any>;
     [key: string]: any;
 }
@@ -15,27 +15,27 @@ export const getAnchorStyle = (
     parentWidth?: number,
     parentHeight?: number
 ): ViewStyle => {
-    const { align = 'top-left', pos = { x: 0, y: 0 }, size, style: customStyle } = config;
+    const { anchor = 'top-left', position = { x: 0, y: 0 }, size, style: customStyle } = config;
 
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
     const containerWidth = parentWidth ?? screenWidth;
     const containerHeight = parentHeight ?? screenHeight;
 
-    // --- ФІКС: Отримуємо розмір елемента з різних джерел ---
-    // Якщо немає size.w, перевіряємо style.width
+    // --- FIX: Get element size from different sources ---
+    // If there is no size.w, check style.width
     const rawW = size?.w || (customStyle?.width ? parseInt(String(customStyle.width)) : 0);
-    // Якщо немає size.h, використовуємо fontSize як приблизну висоту для тексту
+    // If there is no size.h, use fontSize as the approximate height for text
     const rawH = size?.h || (customStyle?.height ? parseInt(String(customStyle.height)) : (customStyle?.fontSize ? parseInt(String(customStyle.fontSize)) : 0));
 
     const elementWidth = rawW * globalScale;
     const elementHeight = rawH * globalScale;
 
-    const offsetX = (pos?.x || 0) * globalScale;
-    const offsetY = (pos?.y || 0) * globalScale;
+    const offsetX = (position?.x || 0) * globalScale;
+    const offsetY = (position?.y || 0) * globalScale;
 
     const style: ViewStyle = { position: 'absolute' };
 
-    switch (align) {
+    switch (anchor) {
         case 'top-left':
             style.left = offsetX;
             style.top = offsetY;

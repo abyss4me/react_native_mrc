@@ -2,9 +2,9 @@
 export interface BaseElementConfig {
     type: "button" | "text" | "image" | "container";
     id?: string;
-    pos?: { x: number; y: number };
+    position?: { x: number; y: number };
     size?: { w: number; h: number };
-    align?: "center" | "top-left" | "top-right" /* and so on */;
+    anchor?: "center" | "top-left" | "top-right" /* and so on */;
     visible?: boolean;
     style?: Record<string, any>; // Styles can be flexible
 }

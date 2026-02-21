@@ -47,8 +47,7 @@ export const Container = ({ config, globalScale = 1, onInteract }: any) => {
                 if (serverData?.components?.[childConfig.id]) {
                     Object.assign(childConfig, serverData.components[childConfig.id]);
                 }
-                
-                // Old binding format (for compatibility)
+
                 if (childConfig.id && serverData?.[childConfig.id]) {
                      if(childConfig.type === 'text') childConfig.content = serverData[childConfig.id];
                      if(childConfig.type === 'image') childConfig.src = serverData[childConfig.id];

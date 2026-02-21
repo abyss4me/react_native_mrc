@@ -20,16 +20,15 @@ export const Keyboard = ({ config, globalScale = 1, onInteract }: any) => {
     };
 
     const anchorStyle = getAnchorStyle(config, globalScale);
-
     return (
         <View style={[
             anchorStyle,
             {
                 position: 'absolute',
-                // Flexbox для центрування клавіатури
+                // Flexbox for centering the keyboard
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 5 * globalScale // gap працює в нових версіях RN
+                gap: 5 * globalScale // gap works in new versions of RN
             }
         ]}>
             {rows.map((row, i) => (
@@ -38,7 +37,7 @@ export const Keyboard = ({ config, globalScale = 1, onInteract }: any) => {
                     style={{ 
                         flexDirection: 'row', 
                         justifyContent: 'center', 
-                        gap: 4 * globalScale, // Відступи між кнопками
+                        gap: 4 * globalScale, // Gaps between buttons
                         width: '100%' 
                     }}
                 >
@@ -52,13 +51,11 @@ export const Keyboard = ({ config, globalScale = 1, onInteract }: any) => {
                                 id: key,
                                 content: key,
                                 action: key === "⌫" ? "BACKSPACE" : `KEY_${key}`,
-                                texture: config.texture,
-                                textureFocused: config.textureFocused,
-                                textureDisabled: config.textureDisabled,
+                                states: config?.states || {},
                                 disabled: config?.disabled || false,
                                 size: keySize,
                                 style: {
-                                    fontSize: 20, // Розмір шрифту
+                                    fontSize: 20, // Font size
                                     color: '#fff'
                                 }
                             }}

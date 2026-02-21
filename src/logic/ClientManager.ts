@@ -43,12 +43,12 @@ export default class ClientManager {
             this.appController.handleMessage({
                 type: "SET_SCREEN",
                 data: {
-                    screenId: "ENTER_CODE_SCREEN",
+                    screenId: "CONTROL_SCREEN",
                     // Initial state of components
                     components: {
                         "back_icon": { "texture": "https://service.play.works/shared/assets/avatars/8_ball.png" },
                         "btn_text": { "content": 200 },
-                        "custom_back_btn": { "disabled": false, "visible": true },
+                        "custom_back_btn": { "disabled": true, "visible": true },
                         "back_btn": { "disabled": false }
                     }
                 }

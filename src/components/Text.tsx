@@ -9,7 +9,7 @@ export const TextComponent = ({ config, globalScale = 1, parentWidth, parentHeig
     const anchorStyle = getAnchorStyle(config, globalScale, parentWidth, parentHeight);
     
     // Parse font size (remove "px" if it's in the JSON)
-    const rawFontSize = config.style?.fontSize ? parseInt(String(config.style.fontSize)) : 24;
+    const rawFontSize = config.style?.fontSize ? parseInt(String(config.style.fontSize)) : 22;
     const fontSize = rawFontSize * globalScale;
 
     const fontFamily = config.style?.fontFamily || 'Arial';
@@ -39,13 +39,9 @@ export const TextComponent = ({ config, globalScale = 1, parentWidth, parentHeig
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 style={{
-                    color: config.style?.color || 'white',
-                    fontSize: fontSize,
-                    fontFamily: fontFamily, // Must be loaded in App.tsx
-                    fontWeight: config.style?.fontWeight === 'bold' ? 'bold' : 'normal',
-                    textAlign: config.style?.textAlign || 'center',
-                    includeFontPadding: false, // Removes extra padding on Android,
                     ...config.style,
+                    fontSize: fontSize,
+                    includeFontPadding: false, // Removes extra padding on Android,
                 }}
             >
                 {config.content}

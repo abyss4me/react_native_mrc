@@ -2,7 +2,7 @@
 import * as Font from 'expo-font';
 
 export const preloadRemoteFonts = async (config: any) => {
-    const fonts = config.fonts; // Отримуємо об'єкт із кореня
+    const fonts = config.fonts; // Get the object from the root
     if (!fonts) return Promise.resolve();
 
     const fontPromises = Object.keys(fonts).map(familyName => {
