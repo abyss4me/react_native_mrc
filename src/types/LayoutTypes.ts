@@ -2,8 +2,8 @@
 export interface BaseElementConfig {
     type: "button" | "text" | "image" | "container";
     id?: string;
-    position?: { x: number; y: number };
-    size?: { w: number; h: number };
+    position?: [number, number];
+    size?: [number, number];
     anchor?: "center" | "top-left" | "top-right" /* and so on */;
     visible?: boolean;
     style?: Record<string, any>; // Styles can be flexible

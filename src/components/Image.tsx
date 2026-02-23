@@ -4,8 +4,11 @@ import { getAnchorStyle } from '../engine/layoutUtils';
 
 export const ImageComponent = ({ config, globalScale = 1, parentWidth, parentHeight }: any) => {
     const anchorStyle = getAnchorStyle(config, globalScale, parentWidth, parentHeight);
-    const width = (config.size?.w || 100) * globalScale;
-    const height = (config.size?.h || 100) * globalScale;
+
+    const [w, h] = config.size || [100, 100];
+
+    const width = w * globalScale;
+    const height = h * globalScale;
 
     // Determine the image source
     const source = config.src || config.texture;

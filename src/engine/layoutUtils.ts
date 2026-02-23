@@ -2,9 +2,9 @@
 import { ViewStyle, Dimensions } from 'react-native';
 
 interface LayoutConfig {
-    position?: { x: number; y: number };
-    size?: { w: number; h: number };
-    anchor?: string;
+    position?: [number, number];
+    size?: [number, number];
+    anchor?: [number, number];
     style?: Record<string, any>;
     [key: string]: any;
 }
@@ -15,66 +15,51 @@ export const getAnchorStyle = (
     parentWidth?: number,
     parentHeight?: number
 ): ViewStyle => {
-    const { anchor = 'top-left', position = { x: 0, y: 0 }, size, style: customStyle } = config;
+
+    const { anchor = [0, 0], style: customStyle } = config;
+
+    const [width, height] = config.size || [ 0, 0 ];
+    const [x, y] = config.position || [ 0, 0 ];
 
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
     const containerWidth = parentWidth ?? screenWidth;
     const containerHeight = parentHeight ?? screenHeight;
 
-    // --- FIX: Get element size from different sources ---
-    // If there is no size.w, check style.width
-    const rawW = size?.w || (customStyle?.width ? parseInt(String(customStyle.width)) : 0);
-    // If there is no size.h, use fontSize as the approximate height for text
-    const rawH = size?.h || (customStyle?.height ? parseInt(String(customStyle.height)) : (customStyle?.fontSize ? parseInt(String(customStyle.fontSize)) : 0));
+    const rawW = width || (customStyle?.width ? parseInt(String(customStyle.width)) : 0);
+    const rawH = height || (customStyle?.height ? parseInt(String(customStyle.height)) : (customStyle?.fontSize ? parseInt(String(customStyle.fontSize)) : 0));
 
     const elementWidth = rawW * globalScale;
     const elementHeight = rawH * globalScale;
 
-    const offsetX = (position?.x || 0) * globalScale;
-    const offsetY = (position?.y || 0) * globalScale;
+    const offsetX = (x || 0) * globalScale;
+    const offsetY = (y || 0) * globalScale;
 
     const style: ViewStyle = { position: 'absolute' };
 
-    switch (anchor) {
-        case 'top-left':
-            style.left = offsetX;
-            style.top = offsetY;
-            break;
-        case 'top-center':
-            style.left = (containerWidth - elementWidth) / 2 + offsetX;
-            style.top = offsetY;
-            break;
-        case 'top-right':
-            style.right = offsetX;
-            style.top = offsetY;
-            break;
-        case 'left-center':
-            style.left = offsetX;
-            style.top = (containerHeight - elementHeight) / 2 + offsetY;
-            break;
-        case 'center':
-            style.left = (containerWidth - elementWidth) / 2 + offsetX;
-            style.top = (containerHeight - elementHeight) / 2 + offsetY;
-            break;
-        case 'right-center':
-            style.right = offsetX;
-            style.top = (containerHeight - elementHeight) / 2 + offsetY;
-            break;
-        case 'bottom-left':
-            style.left = offsetX;
-            style.bottom = offsetY;
-            break;
-        case 'bottom-center':
-            style.left = (containerWidth - elementWidth) / 2 + offsetX;
-            style.bottom = offsetY;
-            break;
-        case 'bottom-right':
-            style.right = offsetX;
-            style.bottom = offsetY;
-            break;
-        default:
-            style.left = offsetX;
-            style.top = offsetY;
+    const [anchorX, anchorY] = anchor;
+
+    // --- Math for X axis---
+    if (anchorX === 0.5) {
+        // center X
+        style.left = (containerWidth - elementWidth) / 2 + offsetX;
+    } else if (anchorX > 0.5) {
+        // top right edge (1.0)
+        style.right = offsetX;
+    } else {
+        // left edge (0.0)
+        style.left = offsetX;
+    }
+
+    // --- Math for Y axis ---
+    if (anchorY === 0.5) {
+        // center Y
+        style.top = (containerHeight - elementHeight) / 2 + offsetY;
+    } else if (anchorY > 0.5) {
+        // Bottom edge (1.0)
+        style.bottom = offsetY;
+    } else {
+        // Top edge (0.0)
+        style.top = offsetY;
     }
 
     return style;

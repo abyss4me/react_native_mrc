@@ -9,8 +9,11 @@ export const Container = ({ config, globalScale = 1, onInteract }: any) => {
     if (!config.layout) return null;
 
     const anchorStyle = getAnchorStyle(config, globalScale);
-    const width = (config.size?.w || 0) * globalScale;
-    const height = (config.size?.h || 0) * globalScale;
+
+    const [w, h] = config.size || [0, 0];
+
+    const width = w * globalScale;
+    const height = h * globalScale;
 
     // Transformations in RN are an array of objects
     const transform = [];

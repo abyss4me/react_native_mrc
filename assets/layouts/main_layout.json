@@ -20,10 +20,10 @@
         {
           "type": "image",
           "id": "main_logo",
-          "anchor": "top-center",
+          "anchor": [0.5, 0],
           "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/logo.png",
-          "position": { "x": 0, "y": 0 },
-          "size": { "w": 300, "h": 350 },
+          "position": [0, 0],
+          "size": [300, 350],
 		  "rotation": 0,
           "scaleX": 1,
           "style": {
@@ -39,8 +39,8 @@
           "type": "text",
           "id": "tap_to_connect",
           "content": "TAP TO CONNECT",
-          "anchor": "center",
-          "position": { "x": 0, "y": 0 },
+          "anchor": [0.5, 0.5],
+          "position": [0, 0],
           "style": {
             "textAlign": "center",
             "color": "white",
@@ -55,7 +55,7 @@
         {
           "type": "button",
           "id": "custom_back_btn",
-          "anchor": "top-right",
+          "anchor": [1, 0],
           "action": "back",
           "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/confirm_btn.png",
           "states": {
@@ -72,25 +72,25 @@
             }
           },
 
-          "position": { "x": 100, "y": 100 },
-          "size": { "w": 490, "h": 166 },
+          "position": [100, 100],
+          "size": [490, 166],
 
           "layout": [
             {
               "type": "text",
               "id": "btn_text",
               "content": "20",
-              "anchor": "center",
-              "position": { "x": 0, "y": 0 },
+              "anchor": [0.5, 0.5],
+              "position": [0, 0],
               "style": { "textAlign": "center", "color": "white", "fontSize": 40, "width": 490, "fontFamily": "LibreFranklinBold"}
             },
             {
               "type": "image",
               "id": "back_icon",
-              "anchor": "left-center",
+              "anchor": [0, 0.5],
               "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/logo.png",
-              "position": { "x": 50, "y": 0 },
-              "size": { "w": 100, "h": 100 }
+              "position": [50, 0],
+              "size": [100, 100]
             }
           ]
         }
@@ -101,9 +101,9 @@
         {
           "type": "container",
           "id": "dpad_group",
-          "anchor": "bottom-left",
-          "position": { "x": 100, "y": 200 },
-          "size": { "w": 300, "h": 300 },
+          "anchor": [0, 0.5],
+          "position": [100, 200],
+          "size": [300, 300],
           "layout": [
               {
                 "type": "button",
@@ -112,8 +112,8 @@
                 "states": {
                   "pressed": { "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/control_btn_focused.png" }
                 },
-                "position": { "x": 100, "y": -20 },
-                "size": { "w": 120, "h": 120 },
+                "position": [100, -20],
+                "size": [120, 120],
                 "rotate": 0
               },
               {
@@ -123,8 +123,8 @@
                 "states": {
                   "pressed": { "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/control_btn_focused.png" }
                 },
-                "position": { "x": 220, "y": 100 },
-                "size": { "w": 120, "h": 120 },
+                "position": [220, 100],
+                "size": [120, 120],
                 "rotate": 90
               },
               {
@@ -134,8 +134,8 @@
                 "states": {
                   "pressed": { "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/control_btn_focused.png" }
                 },
-                "position": { "x": 100, "y": 220 },
-                "size": { "w": 120, "h": 120 },
+                "position": [100, 220],
+                "size": [120, 120],
                 "rotate": 180
               },
               {
@@ -145,8 +145,8 @@
                 "states": {
                   "pressed": { "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/control_btn_focused.png" }
                 },
-                "position": { "x": -20, "y": 100 },
-                "size": { "w": 120, "h": 120 },
+                "position": [-20, 100],
+                "size": [120, 120],
                 "rotate": 270
               }
           ]
@@ -155,32 +155,32 @@
         {
           "type": "container",
           "id": "AVATAR_GROUP",
-          "anchor": "top-left",
-          "position": { "x": 100, "y": 50 },
-          "size": { "w": 100, "h": 100 },
+          "anchor": [0, 0],
+          "position": [100, 50],
+          "size": [100, 100],
           "layout": [
             {
               "type": "image",
               "id": "player_bg",
-              "anchor": "center",
+              "anchor": [0.5, 0.5],
               "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/player1.png",
-              "position": { "x": 0, "y": 0 },
-              "size": { "w": 100, "h": 100 }
+              "position": [0, 0],
+              "size": [100, 100]
             },
             {
               "type": "image",
               "id": "avatar_url",
-              "anchor": "center",
+              "anchor": [0.5, 0.5],
               "texture": "",
-              "position": { "x": 0, "y": -15 },
-              "size": { "w": 80, "h": 80 }
+              "position": [0, -15],
+              "size": [80, 80]
             },
             {
               "type": "text",
               "id": "player_name",
               "content": "PLAYER NAME",
-              "anchor": "center",
-              "position": { "x": 0, "y": 20 },
+              "anchor": [0.5, 0.5],
+              "position": [0, 20],
               "style": { "textAlign": "center", "color": "white", "fontSize": 14, "width": 1920 }
             }
           ]
@@ -189,14 +189,14 @@
         {
           "type": "button",
           "id": "back",
-          "anchor": "top-right",
+          "anchor": [1, 0],
           "action": "back",
           "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/back_btn.png",
           "states": {
             "pressed": { "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/back_btn_focused.png" }
           },
-          "position": { "x": 100, "y": 30 },
-          "size": { "w": 150, "h": 80 },
+          "position": [100, 30],
+          "size": [150, 80],
           "style": {
             "color": "white",
             "fontSize": 40,
@@ -206,14 +206,14 @@
         {
           "type": "button",
           "id": "ok",
-          "anchor": "bottom-right",
+          "anchor": [1, 1],
           "action": "ok",
           "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/ok_btn.png",
           "states": {
             "pressed": { "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/ok_btn_focused.png" }
           },
-          "position": { "x": 100, "y": 80 },
-          "size": { "w": 150, "h": 150 },
+          "position": [100, 80],
+          "size": [150, 150],
           "content": "OK",
           "style": {
             "color": "white",
@@ -227,10 +227,10 @@
         {
           "type": "image",
           "id": "main_logo",
-          "anchor": "top-center",
+          "anchor": [0.5, 0],
           "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/logo.png",
-          "position": { "x": 0, "y": 20 },
-          "size": { "w": 500, "h": 350 }
+          "position": [0, 20],
+          "size": [500, 350]
         }
       ]
     },
@@ -240,14 +240,14 @@
         {
           "type": "text",
           "content": "GUESS THE LETTER",
-          "anchor": "top-center",
-          "position": { "x": 0, "y": 20 },
+          "anchor": [0.5, 0],
+          "position": [0, 20],
           "style": { "textAlign": "center", "color": "gold", "fontSize": 40, "width": 1920 }
         },
         {
           "type": "keyboard",
-          "anchor": "bottom-center",
-          "position": { "x": 0, "y": 100 },
+          "anchor": [0.5, 1],
+          "position": [0, 100],
           "states": {
             "normal": {
               "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/keyboard_letter_btn.png"
@@ -263,8 +263,8 @@
               }
             }
           },
-          "size": { "w": 1000, "h": 400 },
-          "keySize": { "w": 80, "h": 90 }
+          "size": [1000, 400],
+          "keySize": [80, 90]
         }
       ]
     },
@@ -274,22 +274,22 @@
         {
           "type": "button",
           "id": "back_btn",
-          "anchor": "top-right",
+          "anchor": [1, 0],
           "action": "back",
           "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/back_btn.png",
           "states": {
             "pressed": { "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/back_btn_focused.png" }
           },
-          "position": { "x": 30, "y": 30 },
-          "size": { "w": 100, "h": 60 },
+          "position": [30, 30],
+          "size": [100, 60],
           "style": { "fontSize": 40, "color": "white" }
         },
         {
           "type": "text",
           "id": "server_message",
-          "anchor": "top-center",
+          "anchor": [0.5, 0],
           "content": "ENTER SIX-DIGITS CODE FOR YOUR FRIENDS ROOM",
-          "position": { "x": 0, "y": 120 },
+          "position": [0, 120],
           "style": {
             "width": 1980,
             "textAlign": "center",
@@ -306,9 +306,9 @@
         {
           "type": "text",
           "id": "pin_val",
-          "anchor": "center",
+          "anchor": [0.5, 0.5],
           "content": "",
-          "position": { "x": 0, "y": -50 },
+          "position": [0, -50],
           "style": {
             "width": 600,
             "height": 100,
@@ -325,34 +325,47 @@
         {
           "type": "container",
           "id": "numpad_row",
-          "anchor": "center",
-          "position": { "x": 0, "y": 50 },
-          "size": { "w": 1200, "h": 120 },
+          "anchor": [0.5, 0.5],
+          "position": [0, 50],
+          "size": [1200, 120],
           "layout": [
-            { "type": "button", "action": "NUM_0", "content": "0", "position": { "x": 0, "y": 0 }, "size": {"w": 80, "h": 80}, "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "textureFocused": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn_focused.png","style": {"fontSize": 35} },
-            { "type": "button", "action": "NUM_1", "content": "1", "position": { "x": 110, "y": 0 }, "size": {"w": 80, "h": 80}, "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
-            { "type": "button", "action": "NUM_2", "content": "2", "position": { "x": 220, "y": 0 }, "size": {"w": 80, "h": 80}, "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
-            { "type": "button", "action": "NUM_3", "content": "3", "position": { "x": 330, "y": 0 }, "size": {"w": 80, "h": 80}, "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
-            { "type": "button", "action": "NUM_4", "content": "4", "position": { "x": 440, "y": 0 }, "size": {"w": 80, "h": 80}, "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
-            { "type": "button", "action": "NUM_5", "content": "5", "position": { "x": 550, "y": 0 }, "size": {"w": 80, "h": 80}, "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
-            { "type": "button", "action": "NUM_6", "content": "6", "position": { "x": 660, "y": 0 }, "size": {"w": 80, "h": 80}, "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
-            { "type": "button", "action": "NUM_7", "content": "7", "position": { "x": 770, "y": 0 }, "size": {"w": 80, "h": 80}, "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
-            { "type": "button", "action": "NUM_8", "content": "8", "position": { "x": 880, "y": 0 }, "size": {"w": 80, "h": 80}, "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
-            { "type": "button", "action": "NUM_9", "content": "9", "position": { "x": 990, "y": 0 }, "size": {"w": 80, "h": 80}, "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
-            { "type": "button", "action": "DELETE", "content": "⌫", "position": { "x": 1100, "y": 0 }, "size": {"w": 80, "h": 80}, "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} }
+            { "type": "button", "action": "NUM_0", "content": "0", "position": [0, 0], "size": [80, 80], "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "textureFocused": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn_focused.png","style": {"fontSize": 35} },
+            { "type": "button", "action": "NUM_1", "content": "1", "position": [110, 0], "size": [80, 80], "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
+            { "type": "button", "action": "NUM_2", "content": "2", "position": [220, 0], "size": [80, 80], "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
+            { "type": "button", "action": "NUM_3", "content": "3", "position": [330, 0], "size": [80, 80], "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
+            { "type": "button", "action": "NUM_4", "content": "4", "position": [440, 0], "size": [80, 80], "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
+            { "type": "button", "action": "NUM_5", "content": "5", "position": [550, 0], "size": [80, 80], "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
+            { "type": "button", "action": "NUM_6", "content": "6", "position": [660, 0], "size": [80, 80], "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
+            { "type": "button", "action": "NUM_7", "content": "7", "position": [770, 0], "size": [80, 80], "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
+            { "type": "button", "action": "NUM_8", "content": "8", "position": [880, 0], "size": [80, 80], "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
+            { "type": "button", "action": "NUM_9", "content": "9", "position": [990, 0], "size": [80, 80], "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} },
+            { "type": "button", "action": "DELETE", "content": "⌫", "position": [1100, 0], "size": [80, 80], "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/code_keyboard_btn.png", "style": {"fontSize": 35} }
           ]
         },
         {
           "type": "button",
           "id": "done_btn",
-          "anchor": "bottom-center",
+          "anchor": [0.5, 1],
           "action": "submit",
           "content": "DONE",
           "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/confirm_btn.png",
-          "textureFocused": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/confirm_btn_focused.png",
-          "textureDisabled": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/confirm_btn_disabled.png",
-          "position": { "x": 0, "y": 50 },
-          "size": { "w": 400, "h": 100 },
+          "states": {
+            "normal": {
+              "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/confirm_btn.png"
+            },
+            "pressed": {
+              "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/confirm_btn_focused.png",
+              "scale": 0.95
+            },
+            "disabled": {
+              "texture": "https://h5.play.works/dev/pavlou/react-native-mrc/assets/images/confirm_btn_disabled.png",
+              "style": {
+                "opacity": 0.6
+              }
+            }
+          },
+          "position": [0, 50],
+          "size": [400, 100],
           "style": {
             "fontSize": 40,
             "fontWeight": "bold",

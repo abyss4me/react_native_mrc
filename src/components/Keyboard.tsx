@@ -11,13 +11,9 @@ export const Keyboard = ({ config, globalScale = 1, onInteract }: any) => {
         ["Z", "X", "C", "V", "B", "N", "M", "⌫"]
     ];
 
-    const baseKeyW = config.keySize?.w || 40;
-    const baseKeyH = config.keySize?.h || 50;
+    const [w, h] = config.keySize || [40, 50];
 
-    const keySize = {
-        w: baseKeyW,
-        h: baseKeyH
-    };
+    const keySize = [w, h];
 
     const anchorStyle = getAnchorStyle(config, globalScale);
     return (

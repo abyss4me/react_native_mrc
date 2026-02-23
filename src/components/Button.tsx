@@ -38,8 +38,8 @@ interface ButtonConfig {
     };
 
     // Placement
-    position?: { x: number; y: number };
-    size?: { w: number; h: number };
+    position?: [number, number];
+    size?: [number, number];
     rotate?: number;
     anchor?: string;
 
@@ -66,8 +66,9 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
     const isDisabled = config.disabled === true;
 
     // 2. Size Calculation
-    const width = (config.size?.w || 100) * globalScale;
-    const height = (config.size?.h || 100) * globalScale;
+    const [w, h] = config.size || [100, 100];
+    const width = w * globalScale;
+    const height = h * globalScale;
 
     // NEW: 3. Extract state configurations (with a fallback to empty objects)
     const { normal = {}, pressed = {}, disabled = {} } = config.states || {};
