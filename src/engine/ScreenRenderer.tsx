@@ -38,8 +38,8 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig, globalBac
     // 2. Calculate Scale.
     // Assume the base design is drawn for a width of 1000px (or another value from your layout)
     // If the phone is in landscape (width > height), use width as the basis.
-    const BASE_DESIGN_WIDTH = 1920;
-    const BASE_DESIGN_HEIGHT = 1080;
+    const BASE_DESIGN_WIDTH = 844;
+    const BASE_DESIGN_HEIGHT = 390;
 
     // Scale proportionally
     const scaleX = width / BASE_DESIGN_WIDTH;
