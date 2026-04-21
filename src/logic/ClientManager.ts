@@ -1,11 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { 
+import * as pwmpLib from '../libs/pwmp_client.min.js';
+import {
     HOST_SERVER_URL, 
-    DEVICE_ID_STORAGE_KEY, 
+    TRANSPORT,
+    DEVICE_ID_STORAGE_KEY,
     CONNECTION_TIMEOUT_DURATION, 
     DEV_MODE 
 } from '../utils/constants';
-import { ServerMessage, ClientMessage } from '../types/ProtocolTypes';
+import { ServerMessage } from '../types/ProtocolTypes';
+
+// UMD-bundle: PWMP is like named-field in module.exports
+const PWMP = (pwmpLib as any).PWMP;
+
 
 // Interface for the application controller (NetworkContext)
 interface AppController {
@@ -14,16 +20,17 @@ interface AppController {
 }
 
 export default class ClientManager {
-    private appController: AppController;
-    private client: WebSocket | null = null;
-    private isConnected: boolean = false;
-    private deviceUid: string | null = null;
-    private connectionTimeout: NodeJS.Timeout | null = null;
-    private hostUrl: string;
+    public appController: AppController;
+    public client: any = null;
+    public isConnected: boolean = false;
+    public deviceUid: string | null = null;
+    public connectionTimeout: ReturnType<typeof setTimeout> | null = null;
+    private _hostUrl: string;
+    private _socketCreated: boolean;
 
     constructor(appController: AppController) {
         this.appController = appController;
-        this.hostUrl = HOST_SERVER_URL;
+        this._hostUrl = HOST_SERVER_URL;
 
         // Device ID initialization
         this.getDeviceId();
@@ -71,17 +78,16 @@ export default class ClientManager {
     }
 
     public connect() {
-        if (this.client && (this.client.readyState === WebSocket.OPEN || this.client.readyState === WebSocket.CONNECTING)) {
-            console.log("WebSocket already connecting or open");
+        if (this.isConnected) {
+            //this.sendMessage("request_current_game_state");
             return;
         }
 
-        console.log(`Connecting to ${this.hostUrl}...`);
-        
+        console.log(`Connecting to ${this._hostUrl}...`);
         try {
-            this.client = new WebSocket(this.hostUrl);
             this.setListeners();
             this.setErrorConnectionTimeout();
+            this.setConnection();
         } catch (e) {
             console.error("WebSocket creation failed:", e);
         }
@@ -89,47 +95,13 @@ export default class ClientManager {
 
     private setListeners() {
         if (!this.client) return;
-
-        this.client.onopen = () => {
-            console.log("WebSocket Connected");
-            this.isConnected = true;
-            this.clearErrorConnectionTimeout();
-            
-            // Send handshake or ID if needed
-            // this.sendMessage("HANDSHAKE", { deviceId: this.deviceUid });
-
-            if (this.appController.onConnectionEstablished) {
-                this.appController.onConnectionEstablished();
-            }
-        };
-
-        this.client.onmessage = (e: WebSocketMessageEvent) => {
-            try {
-                // e.data can be a string
-                const msg = JSON.parse(e.data as string);
-                this.appController.handleMessage(msg);
-            } catch (error) {
-                console.error("Error parsing WebSocket message:", error);
-            }
-        };
-
-        this.client.onclose = () => {
-            console.log("WebSocket Disconnected");
-            this.isConnected = false;
-            // Reconnect logic can be added here
-        };
-
-        this.client.onerror = (e) => {
-            console.error("WebSocket Error:", e);
-        };
     }
 
     public sendMessage(type: string, data?: any) {
         if (this.client && this.isConnected) {
-            const payload: ClientMessage = { type, data };
-            this.client.send(JSON.stringify(payload));
+            this.client.sendMessage({ type, data });
         } else {
-            console.warn("Cannot send message: WebSocket is not connected");
+            console.warn("Cannot send message: client is not connected");
         }
     }
 
@@ -152,7 +124,7 @@ export default class ClientManager {
 
     private uuidv4(): string {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
     }
@@ -180,9 +152,46 @@ export default class ClientManager {
 
     public disconnect() {
         if (this.client) {
-            this.client.close();
+            this.client.disconnect();
             this.client = null;
             this.isConnected = false;
         }
     }
+
+    public createClient() {
+        if (this._socketCreated) return;
+        this._socketCreated = true;
+        this.client = PWMP.Api.createRemoteControllerClient({
+            connectionSettings: {
+                host: HOST_SERVER_URL,
+                transports: TRANSPORT
+            },
+            uuid: this.deviceUid
+        });
+    };
+
+    public locationGetParam(key: string) {
+        let query = location.search.substr(1);
+        let data = query.split("&");
+        for (let i = 0; i < data.length; i++) {
+            let items = data[i].split("=");
+            if (items.length === 2 && items[0] === key) {
+                return items[1];
+            }
+        }
+        return null;
+    };
+    
+    public setConnection() {
+        let eParams = this.locationGetParam("p");
+        if (!eParams) {
+            console.error("Connection parameter 'p' is missing from URL.");
+            return;
+        }
+        let params = this.client.decrypt(eParams);
+        this.client.connectRemoteController(params.host, {
+            roomId: params.roomId,
+            userSharedData: {},
+        });
+    };
 }

@@ -12,6 +12,21 @@
       "supportsTablet": true
     },
     "android": {
+	  "package": "com.playworks.mrcengine",
+	  "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "h5.play.works",
+              "pathPrefix": "/dev/pavlou/wheel_of_fortune/apps/wheel_of_fortune/mobile_controller/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

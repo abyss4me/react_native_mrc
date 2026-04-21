@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.playworks.mrcengine",
+      "sha256_cert_fingerprints": [
+        "ТУТ_БУДЕ_ВАШ_SHA256_ВІДБИТОК_1",
+        "ТУТ_БУДЕ_ВАШ_SHA256_ВІДБИТОК_2_ЯКЩО_ПОТРІБНО"
+      ]
+    }
+  }
+]

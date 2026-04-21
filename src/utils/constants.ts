@@ -8,6 +8,8 @@
 // Use your PC's IP address, for example: "ws://192.168.1.5:8080"
 export const HOST_SERVER_URL = "ws://192.168.0.100:8080"; //TODO:
 
+export const TRANSPORT = ["websocket", "polling"];
+
 // Key for storing the device ID in the phone's memory
 export const DEVICE_ID_STORAGE_KEY = "mp_rc_device_id";
 
