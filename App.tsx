@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, StatusBar, Text, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, StatusBar, Text, useWindowDimensions, Linking } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
+import { NavigationContainer } from '@react-navigation/native';
 
 // Engine Imports
 import { NetworkProvider } from './src/engine/NetworkContext';
@@ -15,6 +16,17 @@ import { setOrientation } from './src/utils/OrientationManager';
 // or import from a file: import localLayouts from './src/layouts/main_layout.json';
 import localLayouts from './assets/layouts/main_layout.json';
 
+const linking = {
+    // Ваші префікси (Universal Links та Custom Scheme)
+    prefixes: ['https://h5.play.works/works/mrc/', 'mrcapp://'],
+    config: {
+        screens: {
+            // Мапимо шлях index.html на логіку програми
+            CONNECT_SCREEN: 'index.html',
+        },
+    },
+};
+
 // Prevent the splash screen from auto-hiding
 //SplashScreen.preventAutoHideAsync();
 
@@ -23,8 +35,38 @@ export default function App() {
     // 1. Navigation state
     const [currentScreenId, setCurrentScreenId] = useState<string>("CONNECT_SCREEN");
 
+    const [initialRoomId, setInitialRoomId] = useState<string | null>(null);
+
     const { width, height } = useWindowDimensions();
     const isPortrait = height > width;
+
+    // --- 2. DEEP LINKING LOGIC ---
+    useEffect(() => {
+        const handleUrl = (url: string | null) => {
+            if (!url) return;
+
+            // Парсимо URL (https://h5.play/works/mrc/index.html?p=1223344)
+            const parsedUrl = new URL(url);
+            const p = parsedUrl.searchParams.get('p');
+
+            if (p) {
+                console.log("🔗 Deep Link detected. Room ID:", p);
+                setInitialRoomId(p);
+                // Якщо прийшов лінк, перемикаємо на екран завантаження/геймпада
+                setCurrentScreenId("GAMEPAD_SCREEN");
+            }
+        };
+
+        // Перевірка при холодному старті (Cold Start)
+        Linking.getInitialURL().then(handleUrl);
+
+        // Слухач для відкритого додатка (Warm Start)
+        const subscription = Linking.addEventListener('url', (event) => {
+            handleUrl(event.url);
+        });
+
+        return () => subscription.remove();
+    }, []);
 
     useEffect(() => {
         async function prepare() {
@@ -76,6 +118,7 @@ export default function App() {
     const globalBackground = (localLayouts as any).background;
 
     return (
+        <NavigationContainer linking={linking}>
         <View style={styles.container} onLayout={() => {}}>
             {/* Hide the status bar for full immersion */}
             <StatusBar hidden translucent backgroundColor="transparent" />
@@ -87,11 +130,14 @@ export default function App() {
                 </View>
             )}
             {!isPortrait && (
-                <NetworkProvider onScreenChange={setCurrentScreenId}>
+                <NetworkProvider onScreenChange={setCurrentScreenId}
+                                /* initialRoomId={initialRoomId}*/
+                >
                     <ScreenRenderer screenConfig={currentConfig} globalBackground={globalBackground} />
                 </NetworkProvider>
             )}
         </View>
+        </NavigationContainer>
     );
 }
 

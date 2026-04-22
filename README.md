@@ -48,3 +48,36 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+
+How to build debug apk
+
+1. Generation (npx expo prebuild)
+Ensure all icons/splash images in app.json are local paths (not URLs).
+
+Run npx expo prebuild --clean in the project root.
+
+This generates the android directory and injects your package name (com.playworks.mrc).
+
+2. Getting Fingerprint (SHA-256)
+Navigate to the native folder: cd android.
+
+Run the signing report: .\gradlew signingReport.
+
+Locate the Variant: debug section in the output.
+
+Copy the SHA-256 string for your assetlinks.json.
+
+3. Creating APK
+Ensure local.properties exists in android/ with a valid sdk.dir.
+
+Run the assembly command: .\gradlew assembleDebug.
+
+Wait for BUILD SUCCESSFUL (this may take several minutes).
+
+Find the file at: android\app\build\outputs\apk\debug\app-debug.apk.
+
+4. Installation
+Return to root: cd ...
+
+Install to device: adb install -r android\app\build\outputs\apk\debug\app-debug.apk.

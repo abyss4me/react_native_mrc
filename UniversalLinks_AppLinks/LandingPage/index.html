@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobile Remote Controller | Connect</title>
+    
+    <meta name="apple-itunes-app" content="app-id=YOUR_APP_ID">
+
+    <style>
+        :root {
+            --primary: #007AFF;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --accent: #38bdf8;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 400px;
+            padding: 2.5rem;
+            background: var(--card);
+            border-radius: 28px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 20px;
+            margin: 0 auto 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+
+        h1 { font-size: 1.75rem; margin-bottom: 0.75rem; font-weight: 700; }
+        p { color: #94a3b8; font-size: 1rem; margin-bottom: 2rem; line-height: 1.6; }
+
+        .room-info {
+            background: rgba(0, 0, 0, 0.25);
+            padding: 1.25rem;
+            border-radius: 16px;
+            margin-bottom: 2.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .room-label {
+            display: block;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+
+        .room-id {
+            display: block;
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--accent);
+            word-break: break-all;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 1.1rem;
+            border-radius: 14px;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            box-sizing: border-box;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.97);
+            background-color: #0063d1;
+        }
+
+        .footer-note { 
+            font-size: 0.8rem; 
+            color: #475569; 
+            margin-top: 1.5rem;
+            line-height: 1.4;
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+ <div class="container">
+    <div class="logo">🎮</div>
+    <h1>Almost There!</h1>
+    
+    <div class="instruction-step">
+        <p><strong>1. Install the App</strong><br>
+        Click the button below to get the controller from the store.</p>
+    </div>
+
+    <a id="store-link" href="#" class="btn btn-primary">Get the App</a>
+
+    <div class="instruction-step" style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">
+        <p><strong>2. Join the Game</strong><br>
+        Once installed, open the app and <strong>scan the QR code again or enter the code</strong> to connect to your session.</p>
+    </div>
+
+    <div style="font-size: 0.6rem; color: #475569; margin-top: 2rem;">
+        Session: <span id="room-display">...</span>
+    </div>
+</div>
+
+    <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashedRoomId = urlParams.get('p');
+    const roomDisplay = document.getElementById('room-display');
+
+    if (hashedRoomId) {
+        roomDisplay.innerText = hashedRoomId.substring(0, 16) + "...";
+    } else {
+        roomDisplay.innerText = "No session detected";
+    }
+
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const storeLink = document.getElementById('store-link');
+
+    // 1. Detection Logic
+    const isIOS = /iPad|iPhone|iPod/.test(userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
+    // Check for "Android" OR the "Linux x86_64" Desktop mode trick
+    const isAndroid = /android/i.test(userAgent) || 
+                      (/Linux/i.test(userAgent) && !isIOS && navigator.maxTouchPoints > 1);
+
+    let storeUrl = "#";
+
+    if (isAndroid) {
+        storeUrl = `https://play.google.com/store/apps/details?id=com.playworks.mrc`;
+        storeLink.innerText = "Get it on Google Play";
+    } else if (isIOS) {
+        storeUrl = `https://apps.apple.com/app/idYOUR_APP_ID`;
+        storeLink.innerText = "Download on the App Store";
+    } else {
+        // 2. FALLBACK: If we still can't tell (like in your screenshot)
+        // Show a general button instead of disabling it
+        storeUrl = `https://h5.play.works/dev/pavlou/download-options.html`; // Or just pick one store as default
+        storeLink.innerText = "Download App";
+        storeLink.style.background = "linear-gradient(135deg, #007AFF, #38bdf8)";
+    }
+
+    storeLink.href = storeUrl;
+    storeLink.style.opacity = "1";
+    storeLink.style.pointerEvents = "auto";
+
+    // 3. Manual Bridge (Clipboard)
+    document.body.addEventListener('click', () => {
+        if (hashedRoomId && navigator.clipboard) {
+            navigator.clipboard.writeText(hashedRoomId).catch(() => {});
+        }
+    }, { once: true });
+</script>
+</body>
+</html>
