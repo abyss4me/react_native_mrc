@@ -52,33 +52,6 @@
         h1 { font-size: 1.75rem; margin-bottom: 0.75rem; font-weight: 700; }
         p { color: #94a3b8; font-size: 1rem; margin-bottom: 2rem; line-height: 1.6; }
 
-        .room-info {
-            background: rgba(0, 0, 0, 0.25);
-            padding: 1.25rem;
-            border-radius: 16px;
-            margin-bottom: 2.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .room-label {
-            display: block;
-            text-transform: uppercase;
-            font-size: 0.7rem;
-            letter-spacing: 0.1em;
-            color: #64748b;
-            margin-bottom: 0.5rem;
-            font-weight: bold;
-        }
-
-        .room-id {
-            display: block;
-            font-family: 'Courier New', Courier, monospace;
-            color: var(--accent);
-            word-break: break-all;
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
-
         .btn {
             display: block;
             width: 100%;
@@ -99,37 +72,65 @@
             box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
         }
 
-        .btn-primary:active {
-            transform: scale(0.97);
-            background-color: #0063d1;
+        /* Desktop QR Code Styling */
+        .qr-section {
+            display: flex;
+            justify-content: space-around;
+            gap: 15px;
+            margin-top: 1rem;
         }
 
-        .footer-note { 
-            font-size: 0.8rem; 
-            color: #475569; 
-            margin-top: 1.5rem;
-            line-height: 1.4;
+        .qr-item {
+            flex: 1;
+            background: white;
+            padding: 10px;
+            border-radius: 12px;
+        }
+
+        .qr-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .qr-label {
+            color: #1e293b;
+            font-size: 0.65rem;
+            font-weight: bold;
+            margin-top: 5px;
+            display: block;
         }
 
         .hidden { display: none; }
+        
+        .instruction-step p { margin: 0; }
     </style>
 </head>
 <body>
 
  <div class="container">
     <div class="logo">🎮</div>
-    <h1>Almost There!</h1>
+    <h1 id="main-title">Almost There!</h1>
+    <p id="main-desc">To start playing as a controller, please install our official app.</p>
     
-    <div class="instruction-step">
-        <p><strong>1. Install the App</strong><br>
-        Click the button below to get the controller from the store.</p>
-    </div>
-
     <a id="store-link" href="#" class="btn btn-primary">Get the App</a>
 
-    <div class="instruction-step" style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">
-        <p><strong>2. Join the Game</strong><br>
-        Once installed, open the app and <strong>scan the QR code again or enter the code</strong> to connect to your session.</p>
+    <div id="desktop-qr" class="hidden">
+        <div class="qr-section">
+            <div class="qr-item">
+                <img id="qr-android" src="" alt="Google Play QR">
+                <span class="qr-label">Google Play</span>
+            </div>
+            <div class="qr-item">
+                <img id="qr-ios" src="" alt="App Store QR">
+                <span class="qr-label">App Store</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="step-2" class="instruction-step" style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">
+        <p><strong>Step 2: Join the Game</strong><br>
+        Once installed, open the app and <strong>scan the QR code again</strong> on your TV to connect.</p>
     </div>
 
     <div style="font-size: 0.6rem; color: #475569; margin-top: 2rem;">
@@ -137,7 +138,7 @@
     </div>
 </div>
 
-    <script>
+<script>
     const urlParams = new URLSearchParams(window.location.search);
     const hashedRoomId = urlParams.get('p');
     const roomDisplay = document.getElementById('room-display');
@@ -150,36 +151,39 @@
 
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
     const storeLink = document.getElementById('store-link');
+    const desktopQr = document.getElementById('desktop-qr');
+
+    // App Store URLs
+    const androidUrl = "https://play.google.com/store/apps/details?id=com.playworks.mrc";
+    const iosUrl = "https://apps.apple.com/app/idYOUR_APP_ID";
 
     // 1. Detection Logic
     const isIOS = /iPad|iPhone|iPod/.test(userAgent) || 
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     
-    // Check for "Android" OR the "Linux x86_64" Desktop mode trick
     const isAndroid = /android/i.test(userAgent) || 
                       (/Linux/i.test(userAgent) && !isIOS && navigator.maxTouchPoints > 1);
 
-    let storeUrl = "#";
-
     if (isAndroid) {
-        storeUrl = `https://play.google.com/store/apps/details?id=com.playworks.mrc`;
+        storeLink.href = androidUrl;
         storeLink.innerText = "Get it on Google Play";
     } else if (isIOS) {
-        storeUrl = `https://apps.apple.com/app/idYOUR_APP_ID`;
+        storeLink.href = iosUrl;
         storeLink.innerText = "Download on the App Store";
     } else {
-        // 2. FALLBACK: If we still can't tell (like in your screenshot)
-        // Show a general button instead of disabling it
-        storeUrl = `https://h5.play.works/dev/pavlou/download-options.html`; // Or just pick one store as default
-        storeLink.innerText = "Download App";
-        storeLink.style.background = "linear-gradient(135deg, #007AFF, #38bdf8)";
+        // DESKTOP FALLBACK: Show QR Codes instead of the button
+        storeLink.classList.add('hidden');
+        desktopQr.classList.remove('hidden');
+        
+        document.getElementById('main-title').innerText = "Scan to Download";
+        document.getElementById('main-desc').innerText = "Scan the QR code for your device to install the controller app.";
+
+        // Generate QR codes using a public API
+        document.getElementById('qr-android').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(androidUrl)}`;
+        document.getElementById('qr-ios').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(iosUrl)}`;
     }
 
-    storeLink.href = storeUrl;
-    storeLink.style.opacity = "1";
-    storeLink.style.pointerEvents = "auto";
-
-    // 3. Manual Bridge (Clipboard)
+    // 2. Manual Bridge (Clipboard)
     document.body.addEventListener('click', () => {
         if (hashedRoomId && navigator.clipboard) {
             navigator.clipboard.writeText(hashedRoomId).catch(() => {});

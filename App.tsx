@@ -28,7 +28,7 @@ const linking = {
 };
 
 // Prevent the splash screen from auto-hiding
-//SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync();
 
 export default function App() {
     const [isReady, setIsReady] = useState(false);
@@ -72,12 +72,12 @@ export default function App() {
         async function prepare() {
             try {
                 // 1. Тримаємо Splash Screen
-                await SplashScreen.preventAutoHideAsync();
+              //  await SplashScreen.preventAutoHideAsync();
 
-                // 2. Завантажуємо шрифти та картинки паралельно
+                // 2. Load fonts & images
 
                 await Promise.all([
-                    preloadAssets(localLayouts) ,// Прелоад ваших картинок
+                    preloadAssets(localLayouts) ,// Images preload
                     preloadRemoteFonts(localLayouts)
                 ]);
 
@@ -85,7 +85,7 @@ export default function App() {
                 console.warn(e);
             } finally {
                 setIsReady(true);
-                // 3. Ховаємо заставку
+                // 3. Hide splash
                 await SplashScreen.hideAsync();
             }
         }

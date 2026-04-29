@@ -4,23 +4,36 @@ import { Asset } from 'expo-asset';
 export const preloadAssets = async (layouts: any) => {
     const imagesToPreload: string[] = [];
 
-    // Collect all URLs and paths to textures from your JSON
-    Object.values(layouts.screens).forEach((screen: any) => {
-        screen.layout?.forEach((el: any) => {
+    const collectTextures = (element: any) => {
+        if (!element) return;
 
-            if (el.texture) imagesToPreload.push(el.texture);
-            if (el.textureFocused) imagesToPreload.push(el.textureFocused);
-            if (el.textureDisabled) imagesToPreload.push(el.textureDisabled);
-            
-            // If there is a nested layout (buttons within buttons)
-            el.layout?.forEach((child: any) => {
-                if (child.texture) imagesToPreload.push(child.texture);
+        if (element.texture) imagesToPreload.push(element.texture);
+        if (element.textureFocused) imagesToPreload.push(element.textureFocused);
+        if (element.textureDisabled) imagesToPreload.push(element.textureDisabled);
+
+        if (element.states) {
+            Object.values(element.states).forEach((state: any) => {
+                if (state.texture) {
+                    imagesToPreload.push(state.texture);
+                }
             });
-        });
+        }
+
+        if (element.layout) {
+            element.layout.forEach(collectTextures);
+        }
+    };
+
+    Object.values(layouts.screens).forEach((screen: any) => {
+        screen.layout?.forEach(collectTextures);
     });
+    
+    if (layouts.background && layouts.background.texture) {
+        imagesToPreload.push(layouts.background.texture);
+    }
 
     // Remove duplicates
-    const uniqueImages = Array.from(new Set(imagesToPreload));
+    const uniqueImages = Array.from(new Set(imagesToPreload.filter(img => img)));
 
     const cacheImages = uniqueImages.map(image => {
         if (typeof image === 'string' && (image.startsWith('http') || image.startsWith('https'))) {
@@ -28,8 +41,7 @@ export const preloadAssets = async (layouts: any) => {
             return Image.prefetch(image);
         } else {
             // For local ones (if you pass through require)
-            // return Asset.fromModule(image).downloadAsync();
-            return Promise.resolve(); 
+            return Asset.fromModule(image).downloadAsync();
         }
     });
 
