@@ -7,11 +7,10 @@ import {
     CONNECTION_TIMEOUT_DURATION, 
     DEV_MODE 
 } from '../utils/constants';
-import { ServerMessage } from '../types/ProtocolTypes';
+import {ConnectionErrorMessage, ServerMessage, SetScreenMessage, UpdateDataMessage} from '../types/ProtocolTypes';
 
 // UMD-bundle: PWMP is like named-field in module.exports
 const PWMP = (pwmpLib as any).PWMP;
-
 
 // Interface for the application controller (NetworkContext)
 interface AppController {
@@ -50,7 +49,7 @@ export default class ClientManager {
             this.appController.handleMessage({
                 type: "SET_SCREEN",
                 data: {
-                    screenId: "CONTROL_SCREEN",
+                    screenId: "CONNECT_SCREEN",
                     // Initial state of components
                     components: {
                         "back_icon": { "texture": "https://service.play.works/shared/assets/avatars/8_ball.png" },
@@ -95,6 +94,51 @@ export default class ClientManager {
 
     private setListeners() {
         if (!this.client) return;
+
+        this.client.addEventListener("connected", this.onConnected.bind(this));
+        this.client.addEventListener("userMessage", this.onUserMessage.bind(this));
+        this.client.addEventListener("userDisconnected", this.onUserDisconnected.bind(this));
+        this.client.addEventListener("userReconnected", this.onUserReconnected.bind(this));
+        this.client.addEventListener("roomUpdated", this.onRoomUpdated.bind(this));
+    }
+
+    public onUserDisconnected() {
+        this.isConnected = false;
+        console.log("User disconnected");
+        this.appController.handleMessage({
+            type: "CONNECTION_STATUS",
+            data: { isConnected: false }
+        } as ServerMessage);
+    }
+
+    public onUserReconnected() {
+        this.isConnected = true;
+        console.log("User reconnected");
+        this.appController.handleMessage({
+            type: "CONNECTION_STATUS",
+            data: { isConnected: true }
+        } as ServerMessage);
+    }
+
+    public onRoomUpdated() {
+
+    }
+
+    public onUserMessage() {
+
+    }
+
+    public onConnected() {
+        this.isConnected = true;
+        this.clearErrorConnectionTimeout();
+        console.log("Connection established!");
+        if (this.appController.onConnectionEstablished) {
+            this.appController.onConnectionEstablished();
+        }
+        this.appController.handleMessage({
+            type: "CONNECTION_STATUS",
+            data: { isConnected: true }
+        } as ServerMessage);
     }
 
     public sendMessage(type: string, data?: any) {
@@ -135,10 +179,10 @@ export default class ClientManager {
             if (!this.isConnected) {
                 console.warn("Connection timeout reached");
                 // Can notify the UI about an error
-                this.appController.handleMessage({ 
+             /*   this.appController.handleMessage({
                     type: "CONNECTION_ERROR_SCREEN",
                     data: { message: "Server not responding" }
-                } as ServerMessage);
+                } as ServerMessage);*/
             }
         }, CONNECTION_TIMEOUT_DURATION);
     }

@@ -76,9 +76,9 @@ export interface UpdateDataMessage {
  * Message: CONNECTION_ERROR
  */
 export interface ConnectionErrorMessage {
-    type: "CONNECTION_ERROR_SCREEN";
+    type: "CONNECTION_STATUS";
     data?: {
-        message?: string;
+        isConnected?: boolean;
     };
 }
 

@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import * as Application from 'expo-application';
 import { View, ImageBackground, StyleSheet, useWindowDimensions } from 'react-native';
 import { ComponentMap } from '../components'; // Import the component map
 import { useNetwork } from './NetworkContext';
+
+import {
+    BASE_DESIGN_WIDTH,
+    BASE_DESIGN_HEIGHT
+} from '../utils/constants';
 
 // Recursive function for data injection
 const recursiveProcessConfig = (rawConfig: any, serverData: any): any => {
@@ -30,7 +36,14 @@ interface ScreenRendererProps {
 }
 
 const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig, globalBackground }) => {
+    const [appVersion, setAppVersion] = useState('');
     const { serverData, sendMessage } = useNetwork();
+
+    useEffect(() => {
+        const version: string = Application.nativeApplicationVersion;
+        setAppVersion(version);
+        console.log("App------------->", appVersion)
+    }, []);
 
     // 1. Get phone screen dimensions
     const { width, height } = useWindowDimensions();
@@ -38,8 +51,6 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig, globalBac
     // 2. Calculate Scale.
     // Assume the base design is drawn for a width of 1000px (or another value from your layout)
     // If the phone is in landscape (width > height), use width as the basis.
-    const BASE_DESIGN_WIDTH = 844;
-    const BASE_DESIGN_HEIGHT = 390;
 
     // Scale proportionally
     const scaleX = width / BASE_DESIGN_WIDTH;
@@ -107,7 +118,6 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig, globalBac
             bgColor = globalBg;
         }
     }
-
 
     return (
         <View style={styles.container}>

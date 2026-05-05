@@ -19,5 +19,8 @@ export const CONNECTION_TIMEOUT_DURATION = 3000;
 // Development mode (enables additional logs or mock data)
 export const DEV_MODE = true;
 
+export const BASE_DESIGN_WIDTH = 844;
+export const BASE_DESIGN_HEIGHT = 390;
+
 // Protocol or application version
 export const APP_VERSION = "1.0.0";

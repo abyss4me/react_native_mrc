@@ -10,6 +10,7 @@ import ScreenRenderer from './src/engine/ScreenRenderer';
 import { preloadAssets } from './src/utils/AssetsLoader';
 import { preloadRemoteFonts } from './src/utils/FontLoader';
 import { setOrientation } from './src/utils/OrientationManager';
+import DisconnectOverlay from './src/components/DisconnectOverlay';
 
 // --- 1. CONFIGURATION & MOCK DATA ---
 // These are your JSON layouts. In the future, you can load them via fetch()
@@ -39,6 +40,11 @@ export default function App() {
 
     const { width, height } = useWindowDimensions();
     const isPortrait = height > width;
+
+    const clientVersion: string = localLayouts?.clientVersion || "";
+    const settings: { orientation: string, keepAwake: boolean } = localLayouts?.settings;
+
+    console.log(clientVersion)
 
     // --- 2. DEEP LINKING LOGIC ---
     useEffect(() => {
@@ -134,6 +140,7 @@ export default function App() {
                                 /* initialRoomId={initialRoomId}*/
                 >
                     <ScreenRenderer screenConfig={currentConfig} globalBackground={globalBackground} />
+                    <DisconnectOverlay />
                 </NetworkProvider>
             )}
         </View>

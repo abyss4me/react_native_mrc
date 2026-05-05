@@ -5,6 +5,7 @@ import { ServerMessage, GameState } from '../types/ProtocolTypes'; // Import you
 interface NetworkContextType {
     client: ClientManager | null;
     serverData: GameState;
+    isDisconnected: boolean; // New state for the overlay
     sendMessage: (type: string, data?: any) => void;
     connect: () => void;
 }
@@ -19,9 +20,8 @@ interface Props {
 export const NetworkProvider: React.FC<Props> = ({ children, onScreenChange }) => {
     const [client, setClient] = useState<ClientManager | null>(null);
     const [serverData, setServerData] = useState<GameState>({});
+    const [isDisconnected, setIsDisconnected] = useState(false); // State for disconnect overlay
 
-    // 1. Store onScreenChange in a ref so useEffect doesn't depend on this function changing
-    // This is critical to prevent the socket from being recreated on every parent render.
     const onScreenChangeRef = useRef(onScreenChange);
 
     useEffect(() => {
@@ -29,34 +29,24 @@ export const NetworkProvider: React.FC<Props> = ({ children, onScreenChange }) =
     }, [onScreenChange]);
 
     useEffect(() => {
-        // Create a ClientManager instance
         const cm = new ClientManager({
             handleMessage: (msg: ServerMessage) => {
                 
-                // CASE 1: Change Screen (Atomic Update)
                 if (msg.type === "SET_SCREEN") {
                     const { screenId, ...restOfData } = msg.data;
-
-                    // A. Reset State (Flush & Replace)
-                    // Take everything that came except screenId and make it the new state
                     setServerData(restOfData as GameState);
-
-                    // B. Navigate
                     if (screenId && onScreenChangeRef.current) {
                         onScreenChangeRef.current(screenId);
                     }
                 }
 
-                // CASE 2: Update Data (Incremental Update)
                 if (msg.type === "UPDATE_DATA") {
                     setServerData(prev => {
-                        // 1. Merge Components Deeply
                         const updatedComponents = { 
                             ...(prev.components || {}), 
                             ...(msg.data.components || {}) 
                         };
                         
-                        // Deep merge component properties
                         Object.keys(msg.data.components || {}).forEach(key => {
                             if (msg.data.components && msg.data.components[key]) {
                                 updatedComponents[key] = {
@@ -66,7 +56,6 @@ export const NetworkProvider: React.FC<Props> = ({ children, onScreenChange }) =
                             }
                         });
 
-                        // 2. Merge Root Level Data
                         return {
                             ...prev,
                             ...msg.data,
@@ -74,26 +63,29 @@ export const NetworkProvider: React.FC<Props> = ({ children, onScreenChange }) =
                         };
                     });
                 }
+
+                // Handle connection status changes
+                if (msg.type === "CONNECTION_STATUS") {
+                    setIsDisconnected(!msg.data.isConnected);
+                }
             },
             onConnectionEstablished: () => {
                 console.log("Connection established!");
+                setIsDisconnected(false); // Hide overlay on connection
             }
         });
 
-        // Auto-connect on mount
-        //cm.connect();
         setClient(cm);
 
-        // Cleanup on component unmount (if you need to close the socket)
-        // return () => cm.disconnect(); 
-    }, []); // Empty array = runs once on start
+    }, []);
 
     const value = useMemo(() => ({
         client,
         serverData,
+        isDisconnected, // Expose the new state
         sendMessage: (type: string, data?: any) => client?.sendMessage(type, data),
         connect: () => client?.connect()
-    }), [client, serverData]);
+    }), [client, serverData, isDisconnected]);
 
     return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>;
 };
