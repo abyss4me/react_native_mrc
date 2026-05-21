@@ -7,14 +7,15 @@ import {
     CONNECTION_TIMEOUT_DURATION, 
     DEV_MODE 
 } from '../utils/constants';
-import {ConnectionErrorMessage, ServerMessage, SetScreenMessage, UpdateDataMessage} from '../types/ProtocolTypes';
+import {MessageTypes, ServerMessage} from '../types/ProtocolTypes';
+import {loadPwmpClient} from '../utils/pwmpLoader';
 
 // UMD-bundle: PWMP is like named-field in module.exports
 const PWMP = (pwmpLib as any).PWMP;
 
 // Interface for the application controller (NetworkContext)
 interface AppController {
-    handleMessage: (msg: ServerMessage) => void;
+    dispatch: (msg: ServerMessage | any) => void;
     onConnectionEstablished?: () => void;
 }
 
@@ -26,6 +27,7 @@ export default class ClientManager {
     public connectionTimeout: ReturnType<typeof setTimeout> | null = null;
     private _hostUrl: string;
     private _socketCreated: boolean;
+    private _lastConnectionParam: string | null = null; // Stored for manual reconnection
 
     constructor(appController: AppController) {
         this.appController = appController;
@@ -36,7 +38,7 @@ export default class ClientManager {
 
         // --- MOCK DATA SIMULATION (For testing without a server) ---
         if (DEV_MODE) {
-            this.runSimulation();
+           // this.runSimulation();
         }
     }
 
@@ -46,106 +48,150 @@ export default class ClientManager {
         // Simulation 1: Switch to the connection screen after 0.5 sec
         setTimeout(() => {
             console.log("Simulating SET_SCREEN -> CONNECT_SCREEN");
-            this.appController.handleMessage({
-                type: "SET_SCREEN",
+            this.appController.dispatch({
+                type: MessageTypes.SET_SCREEN,
                 data: {
-                    screenId: "CONNECT_SCREEN",
-                    // Initial state of components
-                    components: {
-                        "back_icon": { "texture": "https://service.play.works/shared/assets/avatars/8_ball.png" },
-                        "btn_text": { "content": 200 },
-                        "custom_back_btn": { "disabled": false, "visible": true },
-                        "back_btn": { "disabled": false }
+                    data: {
+                        screenId: "WAIT_SCREEN",
+                        // Initial state of components
+                        components: {
+                            money: {content: "1000"},
+                            avatar: {texture: "https://service.play.works/shared/assets/avatars/8_ball.png"},
+                            name: {content: "JOHN"},
+                            avatar_group: {visible: true},
+                            player_bg: {texture: `player${1}.png`},
+                            money_val: {content: "500$"},
+                        }
                     }
                 }
-            } as ServerMessage);
+            } as any);
         }, 5);
-
-        // Simulation 2: Update text after 2.5 sec
        /* setTimeout(() => {
-            console.log("Simulating UPDATE_DATA");
-            this.appController.handleMessage({
-                type: "UPDATE_DATA",
+            console.log("Simulating SET_SCREEN -> CONNECT_SCREEN");
+            this.appController.dispatch({
+                type: MessageTypes.UPDATE_COMPONENTS,
                 data: {
-                    components: {
-                        "tap_to_connect": { "content": "READY TO PAIR" },
-                        "custom_back_btn": { "disabled": false, "style": { "opacity": 1 } }
+                    data: {
+                        screenId: "VOWEL_SCREEN",
+                        // Initial state of components
+                        components: {
+                            money: {content: "3000"},
+                            avatar: {texture: "https://service.play.works/shared/assets/avatars/8_ball.png"},
+                            name: {content: "JOHN"},
+                            avatar_group: {visible: true},
+                            player_bg: {texture: `player${1}.png`},
+                            money_val: {content: "5100$"},
+                        }
                     }
                 }
             } as ServerMessage);
-        }, 2500);*/
+        }, 2000);*/
+
     }
 
-    public connect() {
-        if (this.isConnected) {
-            //this.sendMessage("request_current_game_state");
-            return;
+    public async connect(p_param: string) {
+        // If a client already exists or is connected, cleanly destroy it before attempting a new connection
+        if (this.client || this.isConnected) {
+            console.log("Cleaning up existing connection before starting a new one...");
+            this.disconnect();
         }
+
+        this._lastConnectionParam = p_param;
+
+        // Clear any prior connection errors in the UI
+        this.appController.dispatch({
+            type: MessageTypes.CLEAR_CONNECTION_ERROR
+        });
 
         console.log(`Connecting to ${this._hostUrl}...`);
         try {
+            await this.createClient(); // Ensure client is created before connecting
             this.setListeners();
             this.setErrorConnectionTimeout();
-            this.setConnection();
+            this.setConnection(p_param);
         } catch (e) {
-            console.error("WebSocket creation failed:", e);
+            console.error("Connection setup failed:", e);
+            this._socketCreated = false;
+            this.appController.dispatch({
+                type: MessageTypes.CONNECTION_TIMEOUT,
+                data: { message: "Failed to load client library. Please check your internet connection and try again." }
+            });
         }
     }
 
     private setListeners() {
         if (!this.client) return;
 
-        this.client.addEventListener("connected", this.onConnected.bind(this));
-        this.client.addEventListener("userMessage", this.onUserMessage.bind(this));
-        this.client.addEventListener("userDisconnected", this.onUserDisconnected.bind(this));
-        this.client.addEventListener("userReconnected", this.onUserReconnected.bind(this));
-        this.client.addEventListener("roomUpdated", this.onRoomUpdated.bind(this));
+        this.client.addEventListener("connected", this.onConnected);
+        this.client.addEventListener("userMessage", this.onUserMessage);
+        this.client.addEventListener("userDisconnected", this.onUserDisconnected);
+        this.client.addEventListener("userReconnected", this.onUserReconnected);
+        this.client.addEventListener("roomUpdated", this.onRoomUpdated);
     }
 
-    public onUserDisconnected() {
+    private removeListeners() {
+        if (!this.client) return;
+
+        this.client.removeEventListener("connected", this.onConnected);
+        this.client.removeEventListener("userMessage", this.onUserMessage);
+        this.client.removeEventListener("userDisconnected", this.onUserDisconnected);
+        this.client.removeEventListener("userReconnected", this.onUserReconnected);
+        this.client.removeEventListener("roomUpdated", this.onRoomUpdated);
+    }
+
+    public onUserDisconnected = () => {
+        if (!this.client) return;
         this.isConnected = false;
         console.log("User disconnected");
-        this.appController.handleMessage({
-            type: "CONNECTION_STATUS",
+        this.appController.dispatch({
+            type: MessageTypes.CONNECTION_STATUS,
             data: { isConnected: false }
         } as ServerMessage);
     }
 
-    public onUserReconnected() {
+    public onUserReconnected = () => {
+        if (!this.client) return;
         this.isConnected = true;
         console.log("User reconnected");
-        this.appController.handleMessage({
-            type: "CONNECTION_STATUS",
+        this.appController.dispatch({
+            type: MessageTypes.CONNECTION_STATUS,
             data: { isConnected: true }
         } as ServerMessage);
     }
 
-    public onRoomUpdated() {
-
+    public onRoomUpdated = () => {
+        if (!this.client) return;
     }
 
-    public onUserMessage() {
-
+    public onUserMessage = (data: any, payload?: any) => {
+        if (!this.client) return;
+        this.isConnected = true;
+        this.appController.dispatch({
+            ...data,
+            ...payload
+        } as ServerMessage);
     }
 
-    public onConnected() {
+    public onConnected = () => {
+        if (!this.client) return;
         this.isConnected = true;
         this.clearErrorConnectionTimeout();
         console.log("Connection established!");
         if (this.appController.onConnectionEstablished) {
             this.appController.onConnectionEstablished();
         }
-        this.appController.handleMessage({
-            type: "CONNECTION_STATUS",
+        this.appController.dispatch({
+            type: MessageTypes.CONNECTION_STATUS,
             data: { isConnected: true }
         } as ServerMessage);
     }
 
-    public sendMessage(type: string, data?: any) {
+    public sendMessage = (type: string, data?: any) => {
+        console.log(`[ClientManager] Attempting to send message. isConnected: ${this.isConnected}, client exists: ${!!this.client}`);
         if (this.client && this.isConnected) {
             this.client.sendMessage({ type, data });
         } else {
-            console.warn("Cannot send message: client is not connected");
+            console.warn(`Cannot send message: client is ${this.client ? 'present' : 'null'}, isConnected is ${this.isConnected}`);
         }
     }
 
@@ -178,11 +224,10 @@ export default class ClientManager {
         this.connectionTimeout = setTimeout(() => {
             if (!this.isConnected) {
                 console.warn("Connection timeout reached");
-                // Can notify the UI about an error
-             /*   this.appController.handleMessage({
-                    type: "CONNECTION_ERROR_SCREEN",
-                    data: { message: "Server not responding" }
-                } as ServerMessage);*/
+                this.appController.dispatch({
+                    type: MessageTypes.CONNECTION_TIMEOUT,
+                    data: { message: "Unable to connect, please try again" }
+                });
             }
         }, CONNECTION_TIMEOUT_DURATION);
     }
@@ -196,15 +241,36 @@ export default class ClientManager {
 
     public disconnect() {
         if (this.client) {
-            this.client.disconnect();
+            this.removeListeners();
+            try {
+                this.client.disconnect();
+                console.log("Client disconnected successfully.");
+            }
+            catch (e) {
+                console.error("Error during client disconnect:", e);
+            }
             this.client = null;
             this.isConnected = false;
+            this._socketCreated = false; // Fix: Allow client to be recreated!
         }
     }
 
-    public createClient() {
+    public reconnect() {
+        if (this._lastConnectionParam) {
+            console.log("Attempting manual reconnect...");
+            this.disconnect();
+            this.connect(this._lastConnectionParam);
+        } else {
+            console.warn("No previous connection parameter available for reconnect.");
+        }
+    }
+
+    public async createClient() {
         if (this._socketCreated) return;
         this._socketCreated = true;
+
+        const PWMP = await loadPwmpClient();
+
         this.client = PWMP.Api.createRemoteControllerClient({
             connectionSettings: {
                 host: HOST_SERVER_URL,
@@ -212,30 +278,41 @@ export default class ClientManager {
             },
             uuid: this.deviceUid
         });
+
+        if (!this.client) {
+             console.error("Critical Error: PWMP.Api.createRemoteControllerClient returned null or undefined!");
+        }
     };
 
-    public locationGetParam(key: string) {
-        let query = location.search.substr(1);
-        let data = query.split("&");
-        for (let i = 0; i < data.length; i++) {
-            let items = data[i].split("=");
-            if (items.length === 2 && items[0] === key) {
-                return items[1];
-            }
-        }
-        return null;
-    };
-    
-    public setConnection() {
-        let eParams = this.locationGetParam("p");
-        if (!eParams) {
-            console.error("Connection parameter 'p' is missing from URL.");
+    public setConnection(p_param: string) {
+        if (!p_param) {
+            console.error("Connection parameter 'p_param' is missing.");
             return;
         }
-        let params = this.client.decrypt(eParams);
-        this.client.connectRemoteController(params.host, {
-            roomId: params.roomId,
-            userSharedData: {},
-        });
+
+        let targetHost = HOST_SERVER_URL;
+        let finalRoomId = "";
+
+        try {
+            if (this.client.decrypt) {
+                let params = this.client.decrypt(p_param);
+                if (params && params.roomId) {
+                    targetHost = params.host || targetHost;
+                    finalRoomId = params.roomId;
+                    console.log("Decrypted hash payload:", params);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to decrypt the provided connection hash:", error);
+        }
+
+        if (finalRoomId) {
+            this.client.connectRemoteController(targetHost, {
+                roomId: finalRoomId,
+                userSharedData: {},
+            });
+        } else {
+            console.error("Could not determine room ID from the provided parameter.");
+        }
     };
 }

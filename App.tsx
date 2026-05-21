@@ -1,177 +1,304 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, StatusBar, Text, useWindowDimensions, Linking } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, StatusBar, Text, Linking, ActivityIndicator, Platform, BackHandler, Alert } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
-import { NavigationContainer } from '@react-navigation/native';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { useSafeAreaInsets, SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Engine Imports
-import { NetworkProvider } from './src/engine/NetworkContext';
+import {NetworkProvider, useNetwork} from './src/engine/NetworkContext';
 import ScreenRenderer from './src/engine/ScreenRenderer';
-import { preloadAssets } from './src/utils/AssetsLoader';
+import { preloadAssets, checkLayoutCompatibility } from './src/utils/AssetsLoader';
 import { preloadRemoteFonts } from './src/utils/FontLoader';
-import { setOrientation } from './src/utils/OrientationManager';
 import DisconnectOverlay from './src/components/DisconnectOverlay';
+import { SCREEN } from './src/utils/constants';
 
-// --- 1. CONFIGURATION & MOCK DATA ---
-// These are your JSON layouts. In the future, you can load them via fetch()
-// or import from a file: import localLayouts from './src/layouts/main_layout.json';
-import localLayouts from './assets/layouts/main_layout.json';
+// Screens
+import { TransitionScreen } from './src/screens/TransitionScreen';
+import { HomeScreen } from './src/screens/HomeScreen';
 
-const linking = {
-    // Ваші префікси (Universal Links та Custom Scheme)
-    prefixes: ['https://h5.play.works/works/mrc/', 'mrcapp://'],
-    config: {
-        screens: {
-            // Мапимо шлях index.html на логіку програми
-            CONNECT_SCREEN: 'index.html',
-        },
-    },
-};
+// localLayouts is used ONLY for local web/Chrome debug (Platform.OS === 'web').
+// It is NOT a fallback — on mobile, any error always routes back to HomeScreen.
+import localLayouts from './assets/layouts/layout.json';
 
-// Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
-export default function App() {
-    const [isReady, setIsReady] = useState(false);
-    // 1. Navigation state
-    const [currentScreenId, setCurrentScreenId] = useState<string>("CONNECT_SCREEN");
+/* Relevant only for dev & debug in Chrome for checking screens */
+const DEFAULT_DEV_SCREEN = SCREEN.DEV;
 
-    const [initialRoomId, setInitialRoomId] = useState<string | null>(null);
+function AndroidBackHandler({ currentScreenId, setCurrentScreenId, setConfigUrl }: any) {
+    const { disconnect } = useNetwork();
 
-    const { width, height } = useWindowDimensions();
-    const isPortrait = height > width;
-
-    const clientVersion: string = localLayouts?.clientVersion || "";
-    const settings: { orientation: string, keepAwake: boolean } = localLayouts?.settings;
-
-    console.log(clientVersion)
-
-    // --- 2. DEEP LINKING LOGIC ---
     useEffect(() => {
-        const handleUrl = (url: string | null) => {
-            if (!url) return;
+        if (Platform.OS !== 'android') return;
 
-            // Парсимо URL (https://h5.play/works/mrc/index.html?p=1223344)
-            const parsedUrl = new URL(url);
-            const p = parsedUrl.searchParams.get('p');
+        const onBackPress = () => {
+            // 1. If in offline setup screens, safely go back to Home
+            if (currentScreenId === SCREEN.TRANSITION) {
+                setCurrentScreenId(SCREEN.HOME);
+                setConfigUrl(null);
+                return true;
+            }
 
-            if (p) {
-                console.log("🔗 Deep Link detected. Room ID:", p);
-                setInitialRoomId(p);
-                // Якщо прийшов лінк, перемикаємо на екран завантаження/геймпада
-                setCurrentScreenId("GAMEPAD_SCREEN");
+            // 2. If actively connected to a server/game (Control Screen)
+            if (currentScreenId !== SCREEN.HOME) {
+                Alert.alert(
+                    "Disconnect",
+                    "Are you sure you want to disconnect from the game?",
+                    [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                            text: "Disconnect",
+                            style: "destructive",
+                                onPress: () => {
+                                        disconnect();
+                                        setCurrentScreenId(SCREEN.HOME);
+                                        setConfigUrl(null);
+                                    }
+                        }
+                    ]
+                );
+                return true; // We handled it, don't exit app or jump instantly
+            }
+
+            // 3. If on HOME_SCREEN, return false to let Android natively exit/background the app
+            return false;
+        };
+
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+        return () => backHandler.remove();
+    }, [currentScreenId, disconnect, setCurrentScreenId, setConfigUrl]);
+
+    return null;
+}
+
+function AppContent() {
+    const [isReady, setIsReady] = useState(false);
+    // Set initial screen based on the platform
+    const [currentScreenId, setCurrentScreenId] = useState<string>(
+        Platform.OS === 'web' ? DEFAULT_DEV_SCREEN : SCREEN.HOME
+    );
+    const [initialRoomId, setInitialRoomId] = useState<string | null>(null);
+    const [configUrl, setConfigUrl] = useState<string | null>(null);
+    const [layouts, setLayouts] = useState<any>(localLayouts); // Start with local layouts
+    const [isLoadingConfig, setIsLoadingConfig] = useState(false);
+    const [isConfigLoadingError, setConfigLoadingError] = useState(false);
+
+    //Apply keep-awake setting dynamically from layout JSON
+    useEffect(() => {
+        const shouldKeepAwake = layouts?.settings?.keepAwake;
+
+        const manageKeepAwake = async () => {
+            try {
+                if (shouldKeepAwake) {
+                    await activateKeepAwakeAsync();
+                } else {
+                    await deactivateKeepAwake();
+                }
+            } catch (e) {
+                console.warn("Failed to manage keep-awake state:", e);
             }
         };
 
-        // Перевірка при холодному старті (Cold Start)
+        manageKeepAwake();
+    }, [layouts?.settings?.keepAwake]);
+
+    // Read SafeArea settings dynamically from layout JSON
+    const { top, bottom, left, right } = useSafeAreaInsets();
+    const shouldSafeArea = layouts?.settings?.useSafeArea === true;
+
+    // Deep linking for cold starts and warm starts
+    useEffect(() => {
+        const handleUrl = (url: string | null) => {
+            if (!url) return;
+            try {
+                const parsedUrl = new URL(url);
+                const p = parsedUrl.searchParams.get('p');  //p - parameter which contains hashed roomId & hostname
+                if (p) {
+                    //console.log("🔗 Deep Link detected. Room ID:", p, "Config URL:", config);
+                    setInitialRoomId(p);
+                    setConfigUrl(null);
+                    setCurrentScreenId(SCREEN.TRANSITION);
+                }
+            } catch (error) {
+                console.error("Invalid deep link URL:", error);
+            }
+        };
+
         Linking.getInitialURL().then(handleUrl);
-
-        // Слухач для відкритого додатка (Warm Start)
-        const subscription = Linking.addEventListener('url', (event) => {
-            handleUrl(event.url);
-        });
-
+        const subscription = Linking.addEventListener('url', (event) => handleUrl(event.url));
         return () => subscription.remove();
     }, []);
 
+    // Effect to fetch remote layout when configUrl changes
+    useEffect(() => {
+        const fetchLayout = async () => {
+            if (!configUrl) return;
+            setIsLoadingConfig(true);
+            console.log(`Fetching remote layout from: ${configUrl}`);
+            try {
+                const response = await fetch(configUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const remoteLayouts = await response.json();
+
+                // Resolve all relative asset URLs in-place BEFORE rendering,
+                try {
+                    if (!checkLayoutCompatibility(remoteLayouts)) {
+                        // Fall back to Home Screen if layout is incompatible with current app version
+                        const defaultScreen = SCREEN.HOME;
+                        setConfigLoadingError(true)
+                        setCurrentScreenId(defaultScreen);
+                        return;
+                    }
+                    await preloadAssets(remoteLayouts);
+                    await preloadRemoteFonts(remoteLayouts);
+                } catch (e) {
+                    console.warn("Asset preloading warning during fetchLayout:", e);
+                }
+
+                setLayouts(remoteLayouts); // Replace layouts with the remote one (URLs now resolved)
+                console.log("Remote layout loaded successfully.");
+
+                // Hide transition and show default screen from JSON configuration
+                const defaultScreen = remoteLayouts.initialScreen || (remoteLayouts.screens && Object.keys(remoteLayouts.screens)[0]) || SCREEN.HOME;
+                setCurrentScreenId(defaultScreen);
+            } catch (error) {
+                console.error("Failed to fetch or parse remote layout:", error);
+                setConfigLoadingError(true);
+                setCurrentScreenId(SCREEN.HOME);
+            } finally {
+                setIsLoadingConfig(false);
+            }
+        };
+
+        fetchLayout();
+    }, [configUrl]);
+
+    // Initial preparation — runs once on mount
     useEffect(() => {
         async function prepare() {
-            try {
-                // 1. Тримаємо Splash Screen
-              //  await SplashScreen.preventAutoHideAsync();
-
-                // 2. Load fonts & images
-
-                await Promise.all([
-                    preloadAssets(localLayouts) ,// Images preload
-                    preloadRemoteFonts(localLayouts)
-                ]);
-
-            } catch (e) {
-                console.warn(e);
-            } finally {
-                setIsReady(true);
-                // 3. Hide splash
-                await SplashScreen.hideAsync();
+            if (Platform.OS === 'web') {
+                // Web: preload local layout assets before revealing the UI
+                try {
+                    await Promise.all([
+                        preloadAssets(localLayouts),
+                        preloadRemoteFonts(localLayouts)
+                    ]);
+                } catch (e) {
+                    console.warn("Asset preloading warning:", e);
+                }
+            } else {
+                // Mobile: hide the native splash screen immediately — HomeScreen has no remote assets to wait for
+                try {
+                    await SplashScreen.hideAsync();
+                } catch (e) {
+                    console.warn("Error hiding splash screen:", e);
+                }
             }
+            setIsReady(true);
         }
-
         prepare();
     }, []);
 
-
-    // 3. Lock orientation (Landscape)
+    // Lock orientation on mobile only
     useEffect(() => {
-        async function lockOrientation() {
-            try {
-                await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-            } catch (error) {
-                console.warn("Orientation lock failed (might happen in Expo Go on some devices):", error);
+        if (Platform.OS !== 'web') {
+            const isLandscape = layouts?.settings?.orientation !== 'portrait'; // default to landscape if not explicitly portrait
+            async function lockOrientation() {
+                try {
+                    await ScreenOrientation.lockAsync(isLandscape ? ScreenOrientation.OrientationLock.LANDSCAPE : ScreenOrientation.OrientationLock.PORTRAIT_UP);
+                } catch (error) {
+                    console.warn("Orientation lock failed:", error);
+                }
             }
+            lockOrientation();
         }
-        lockOrientation();
-    }, []);
+    }, [layouts?.settings?.orientation]);
 
+    const currentConfig = layouts.screens[currentScreenId] || "";
+    const globalBackground = layouts.background;
 
-
-    // While fonts are not loaded - return null (the splash is still visible)
-    if (!isReady) return null;
-
-
-    // 5. Selecting screen configuration
-    // Fallback to CONNECT_SCREEN if an unknown ID is received
-    const currentConfig = (localLayouts as any).screens[currentScreenId] || (localLayouts as any)["CONNECT_SCREEN"];
-    const globalBackground = (localLayouts as any).background;
+    // Dynamically pad the main view if SafeArea is requested by the server JSON
+    const safeAreaPadding = shouldSafeArea ? {
+        paddingTop: top,
+        paddingBottom: bottom,
+        paddingLeft: left,
+        paddingRight: right
+    } : {};
 
     return (
-        <NavigationContainer linking={linking}>
-        <View style={styles.container} onLayout={() => {}}>
-            {/* Hide the status bar for full immersion */}
-            <StatusBar hidden translucent backgroundColor="transparent" />
-            {isPortrait && (
-                <View style={styles.rotateOverlay}>
-                    <Text style={styles.rotateText}>🔄</Text>
-                    <Text style={styles.rotateText}>Please rotate your device</Text>
-                    <Text style={styles.rotateSubText}>This app works only in landscape mode</Text>
-                </View>
-            )}
-            {!isPortrait && (
-                <NetworkProvider onScreenChange={setCurrentScreenId}
-                                /* initialRoomId={initialRoomId}*/
-                >
-                    <ScreenRenderer screenConfig={currentConfig} globalBackground={globalBackground} />
-                    <DisconnectOverlay />
-                </NetworkProvider>
-            )}
-        </View>
-        </NavigationContainer>
+        <NetworkProvider
+            onScreenChange={setCurrentScreenId}
+            layouts={layouts}
+            onConfigUrlReceived={(url) => {
+                if (url) {
+                    setConfigUrl(prevUrl => {
+                        if (prevUrl !== null) {
+                            console.log("Config URL already set, ignoring new URL:", url);
+                            return prevUrl; // Lock after first set — config loads once per session
+                        }
+                        console.log("Setting layout config URL from Network:", url);
+                        return url;
+                    });
+                }
+            }}
+        >
+            <AndroidBackHandler
+                currentScreenId={currentScreenId}
+                setCurrentScreenId={setCurrentScreenId}
+                setConfigUrl={setConfigUrl}
+            />
+            <View style={[styles.container, safeAreaPadding]}>
+                <StatusBar hidden translucent backgroundColor="transparent" />
+
+                {(!isReady || isLoadingConfig) ? (
+                    <View style={[styles.container, styles.centered]}>
+                        <ActivityIndicator size="large" color="#FFFFFF" />
+                        <Text style={styles.loadingText}>{isLoadingConfig ? 'Loading Configuration...' : 'Preparing...'}</Text>
+                    </View>
+                ) : (
+                    <>
+                        {currentScreenId === SCREEN.HOME ? (
+                            <HomeScreen isConfigLoadingError={isConfigLoadingError}/>
+                        ) : currentScreenId === SCREEN.TRANSITION ? (
+                            <TransitionScreen roomId={initialRoomId!} onCancel={() => {
+                                setCurrentScreenId(Platform.OS === 'web' ? DEFAULT_DEV_SCREEN : SCREEN.HOME);
+                                setConfigUrl(null);
+                            }} />
+                        ) : (
+                            <ScreenRenderer screenConfig={currentConfig} globalBackground={globalBackground} templates={layouts?.templates} />
+                        )}
+                        <DisconnectOverlay hidden={currentScreenId === SCREEN.TRANSITION} />
+                    </>
+                )}
+            </View>
+        </NetworkProvider>
+    );
+}
+
+export default function App() {
+    return (
+        <SafeAreaProvider>
+            <AppContent />
+        </SafeAreaProvider>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'black', // Background color
+        backgroundColor: 'black',
     },
-    rotateOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: '#1a1a1a',
-        zIndex: 9999, // Поверх всього
+    centered: {
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
     },
-    rotateText: {
+    loadingText: {
+        marginTop: 10,
         color: 'white',
-        fontSize: 24,
-        fontWeight: 'bold',
-        textAlign: 'center',
-        marginBottom: 10,
-        fontFamily: 'LibreFranklinBold',
-    },
-    rotateSubText: {
-        color: '#aaaaaa',
         fontSize: 16,
-        textAlign: 'center',
-    }
+    },
 });

@@ -28,7 +28,7 @@ export const TextComponent = ({ config, globalScale = 1, parentWidth, parentHeig
                 height: getScaledValue(config.style?.height),
                 padding: getScaledValue(config.style?.padding),
                 // Flexbox to center text within the block
-                justifyContent: config.style?.justifyContent || 'center', 
+                justifyContent: config.style?.justifyContent || 'center',
                 alignItems: config.style?.alignItems || 'center',
                 // opacity
                 opacity: config.style?.opacity ?? 1,

@@ -2,18 +2,23 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNetwork } from '../engine/NetworkContext';
 import { getAnchorStyle } from '../engine/layoutUtils';
-import { ComponentMap } from './index'; // Circular import is resolved via index.ts
+import { ComponentMap } from './ComponentRegistry';
 
-export const Container = ({ config, globalScale = 1, onInteract }: any) => {
+export const Container = ({ config, globalScale = 1, parentWidth, parentHeight, onInteract }: any) => {
     const { serverData } = useNetwork();
     if (!config.layout) return null;
 
-    const anchorStyle = getAnchorStyle(config, globalScale);
+    const anchorStyle = getAnchorStyle(config, globalScale, parentWidth, parentHeight);
 
     const [w, h] = config.size || [0, 0];
 
-    const width = w * globalScale;
-    const height = h * globalScale;
+    // If container has a size, calculate it. Otherwise, pass down its parent's width/height!
+    const width = w ? w * globalScale : parentWidth;
+    const height = h ? h * globalScale : parentHeight;
+
+    // For styling the container itself, if it has no defined size, we use undefined so it can flex/wrap naturally.
+    const styleWidth = w ? width : undefined;
+    const styleHeight = h ? height : undefined;
 
     // Transformations in RN are an array of objects
     const transform = [];
@@ -26,21 +31,20 @@ export const Container = ({ config, globalScale = 1, onInteract }: any) => {
         <View style={[
             anchorStyle,
             {
-                width: width || undefined, // undefined allows children to stretch the container
-                height: height || undefined,
+                width: styleWidth,
+                height: styleHeight,
                 position: 'absolute',
                 // Handling container opacity and background
                 backgroundColor: config.style?.backgroundColor || 'transparent',
                 opacity: config.style?.opacity ?? 1,
                 transform: transform.length > 0 ? transform : undefined,
 
-                // Flex behavior if specified in JSON
+                // Flex behavior defaults
                 flexDirection: config.style?.flexDirection || 'column',
-                justifyContent: config.style?.justifyContent,
-                alignItems: config.style?.alignItems,
-            }
+            },
+            config.style // Spread the rest of the style (justifyContent, alignItems, gap, flexWrap, padding, etc.)
         ]}>
-            {config.layout.map((el: any, i: number) => {
+            <>{config.layout.map((el: any, i: number) => {
                 const Component = ComponentMap[el.type as keyof typeof ComponentMap];
                 if (!Component) return null;
 
@@ -48,7 +52,13 @@ export const Container = ({ config, globalScale = 1, onInteract }: any) => {
 
                 // Data injection from the server (Data Binding)
                 if (serverData?.components?.[childConfig.id]) {
-                    Object.assign(childConfig, serverData.components[childConfig.id]);
+                    const updates = serverData.components[childConfig.id];
+                    const baseStyle = childConfig.style;
+                    Object.assign(childConfig, updates);
+                    // Deep-merge style so template/layout base styles are preserved
+                    if (baseStyle) {
+                        childConfig.style = { ...baseStyle, ...(updates.style || {}) };
+                    }
                 }
 
                 if (childConfig.id && serverData?.[childConfig.id]) {
@@ -66,7 +76,7 @@ export const Container = ({ config, globalScale = 1, onInteract }: any) => {
                         parentHeight={height}
                     />
                 );
-            })}
+            })}</>
         </View>
     );
 };

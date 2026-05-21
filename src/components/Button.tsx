@@ -7,41 +7,41 @@ import {
     StyleSheet,
     ViewStyle,
     TextStyle,
-    ImageStyle
+    ImageStyle,
+    Vibration
 } from 'react-native';
 import { useNetwork } from '../engine/NetworkContext';
 import { getAnchorStyle } from '../engine/layoutUtils';
-import { ComponentMap } from './index';
+import { ComponentMap } from './ComponentRegistry';
+import { ButtonStates } from '../types/LayoutTypes';
 
 // --- Types ---
-// Add an interface for configuring a specific state
-interface ButtonStateConfig {
-    texture?: string;
-    scale?: number;
-    style?: ViewStyle | TextStyle | ImageStyle; // Additional styles for the state (e.g. opacity, tintColor)
-}
 
 interface ButtonConfig {
     type: "button";
     id?: string;
     action?: string;
+    keyCode?: string; // Explicitly define hardware/navigation keys
     content?: string;
     disabled?: boolean;
     visible?: boolean;
     texture?: string;
 
+    // NEW: User-experience enhancements
+    hitbox?: number;  // Expands the clickable area beyond the visual size
+    haptic?: "light" | "medium" | "heavy"; // Triggers local immediate vibration
+    autoRepeat?: boolean; // NEW: If true, holds down the button and repeatedly fires keyUp/keyDown
+    repeatInterval?: number; // NEW: Interval in milliseconds for auto-repeat (default: 200)
+    customData?: Record<string, any>; // Optional arbitrary data forwarded with the action event
+
     // NEW: State-Driven UI instead of flat textures
-    states?: {
-        normal?: ButtonStateConfig;
-        pressed?: ButtonStateConfig;
-        disabled?: ButtonStateConfig;
-    };
+    states?: ButtonStates;
 
     // Placement
     position?: [number, number];
     size?: [number, number];
     rotate?: number;
-    anchor?: string;
+    anchor?: [number, number];
 
     // Styles (Base styles that are always applied)
     style?: Record<string, any>;
@@ -94,42 +94,103 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
     const anchorStyle = isAbsolute ? getAnchorStyle(config, globalScale, parentWidth, parentHeight) : {};
 
     // 5. Transformations
-    const transformStyles = [
-        { rotate: `${config.rotate || 0}deg` },
-        { scale: activeScale }
-    ];
+    const transformStyles = [];
+    if (config.rotate !== undefined) transformStyles.push({ rotate: `${config.rotate}deg` } as any);
+    transformStyles.push({ scale: activeScale } as any);
+
+    // --- Transform HitSlop ---
+    const calculatedHitSlop = config.hitbox ? {
+        top: config.hitbox,
+        bottom: config.hitbox,
+        left: config.hitbox,
+        right: config.hitbox
+    } : undefined;
+
+    // --- Auto-repeat reference ---
+    const autoRepeatIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+    const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [isCoolingDown, setIsCoolingDown] = useState(false);
 
     // --- Event Handlers ---
+
     const handlePressIn = () => {
-        if (isDisabled) return;
+        if (isDisabled || isCoolingDown) return;
         setIsPressed(true);
-        if (!config.action && onInteract && config.id) {
-            onInteract("keyDown", { keyCode: config.id });
+
+        // Immediate local haptic feedback if configured
+        if (config.haptic) {
+            const hapticDurations = {
+                light: 50,
+                medium: 100,
+                heavy: 200
+            };
+            Vibration.vibrate(hapticDurations[config.haptic] || 50);
+        }
+
+        const navKeyCode = config.keyCode || (!config.action ? config.id : null);
+        if (navKeyCode && onInteract) {
+            onInteract("keyDown", { keyCode: navKeyCode });
+
+            // Start auto-repeat if enabled for navigation keys
+            if (config.autoRepeat) {
+                const interval = config.repeatInterval || 200;
+                autoRepeatIntervalRef.current = setInterval(() => {
+                    // Simulate rapid release and re-press
+                    onInteract("keyUp", { keyCode: navKeyCode });
+                    onInteract("keyDown", { keyCode: navKeyCode });
+                }, interval);
+            }
         }
     };
 
     const handlePressOut = () => {
-        if (isDisabled) return;
+        if (isDisabled || isCoolingDown) return;
         setIsPressed(false);
-        if (!config.action && onInteract && config.id) {
-            onInteract("keyUp", { keyCode: config.id });
+
+        // Clear auto-repeat interval if active
+        if (autoRepeatIntervalRef.current) {
+            clearInterval(autoRepeatIntervalRef.current);
+            autoRepeatIntervalRef.current = null;
+        }
+
+        const navKeyCode = config.keyCode || (!config.action ? config.id : null);
+
+        // If it is standard navigation, fire keyUp.
+        if (navKeyCode && onInteract) {
+            onInteract("keyUp", { keyCode: navKeyCode });
+        }
+        // If it HAS an action, it is a custom game trigger (e.g. "submit", "fire_weapon")
+        else if (config.action && onInteract) {
+            onInteract("action", {
+                id: config.id,
+                action: config.action,
+                ...(config.customData ? { customData: config.customData } : {})
+            });
+
+            // Apply immediate local debounce to prevent "Double Submit" before SET_INPUT_GUARD arrives
+            setIsCoolingDown(true);
+            debounceTimeoutRef.current = setTimeout(() => {
+                setIsCoolingDown(false);
+            }, 500); // 500ms grace period for the server to respond with SET_INPUT_GUARD
         }
     };
 
-    const handlePress = () => {
-        if (isDisabled) return;
-        if (config.action && onInteract) {
-            onInteract("action", { action: config.action });
-        }
-    };
+    // Cleanup timeouts safely
+    React.useEffect(() => {
+        return () => {
+            if (autoRepeatIntervalRef.current) clearInterval(autoRepeatIntervalRef.current);
+            if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+        };
+    }, []);
 
     return (
         <Pressable
+            disabled={isDisabled}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
-            onPress={handlePress}
-            disabled={isDisabled}
+            hitSlop={calculatedHitSlop}
             style={[
+                styles.button,
                 anchorStyle as ViewStyle,
                 {
                     width,
@@ -139,65 +200,75 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
                     alignItems: 'center',
                     transform: transformStyles,
                 },
-                config.style as ViewStyle, // Base styles
-                activeStateStyle as ViewStyle // Override active state styles (e.g. opacity: 0.5 for disabled)
+                config.style as ViewStyle,
+                activeStateStyle as ViewStyle
             ]}
         >
-            {/* A. Background texture */}
-            {currentTexture && (
-                <Image
-                    source={{ uri: currentTexture }}
-                    style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-                    resizeMode={config.style?.objectFit || "stretch"}
-                />
-            )}
-
-            {/* B. Simple text (if there is no layout) */}
-            {!config.layout && config.content && (
-                <Text style={[
-                    config.style,
-                    activeStateStyle, // Text can also change color depending on the state
-                    {
-                        color: activeStateStyle.color || config.style?.color || 'white',
-                        fontSize: config.style?.fontSize ? (parseInt(config.style.fontSize) * globalScale) : (20 * globalScale),
-                        transform: [{ rotate: `-${config.rotate || 0}deg` }]
-                    }
-                ]}>
-                    {config.content}
-                </Text>
-            )}
-
-            {/* C. Nested elements (Recursion) */}
-            {config.layout && config.layout.map((el: any, i: number) => {
-                if (el.visible === false) return null;
-
-                const Component = ComponentMap[el.type];
-                if (!Component) return null;
-
-                const childConfig = { ...el };
-
-                if (serverData?.components?.[childConfig.id]) {
-                    Object.assign(childConfig, serverData.components[childConfig.id]);
-                }
-
-                if (serverData && childConfig.id && serverData[childConfig.id] !== undefined) {
-                    if (childConfig.type === 'text') childConfig.content = serverData[childConfig.id];
-                    if (childConfig.type === 'image') childConfig.texture = serverData[childConfig.id];
-                }
-
-                return (
-                    <Component
-                        key={i}
-                        config={childConfig}
-                        globalScale={globalScale}
-                        onInteract={onInteract}
-                        parentWidth={width}
-                        parentHeight={height}
-                        // Optional: you can pass the current state down so that children can react to it
-                        // parentState={isDisabled ? 'disabled' : isPressed ? 'pressed' : 'normal'}
+            <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }]} pointerEvents="none">
+                {currentTexture ? (
+                    <Image
+                        source={{ uri: currentTexture }}
+                        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
+                        resizeMode={config.style?.objectFit || "stretch"}
                     />
-                );
-            })}
+                ) : null}
+                {(!config.layout && !!config.content) ? (
+                    <Text style={[
+                        config.style as TextStyle,
+                        activeStateStyle as TextStyle,
+                        {
+                            color: (activeStateStyle as TextStyle).color || config.style?.color || 'white',
+                            fontSize: config.style?.fontSize ? (parseInt(config.style.fontSize) * globalScale) : (20 * globalScale),
+                            includeFontPadding: false,
+                            textAlign: 'center',
+                            textAlignVertical: 'center',
+                            transform: [{ rotate: `-${config.rotate || 0}deg` }]
+                        }
+                    ]}>
+                        {config.content}
+                    </Text>
+                ) : null}
+                {config.layout ? config.layout.map((el: any, i: number) => {
+                    if (el.visible === false) return null;
+
+                    const Component = ComponentMap[el.type];
+                    if (!Component) return null;
+
+                    const childConfig = { ...el };
+
+                    if (serverData?.components?.[childConfig.id]) {
+                        const updates = serverData.components[childConfig.id];
+                        const baseStyle = childConfig.style;
+                        Object.assign(childConfig, updates);
+                        if (baseStyle) {
+                            childConfig.style = { ...baseStyle, ...(updates.style || {}) };
+                        }
+                    }
+
+                    if (serverData && childConfig.id && serverData[childConfig.id] !== undefined) {
+                        if (childConfig.type === 'text') childConfig.content = serverData[childConfig.id];
+                        if (childConfig.type === 'image') childConfig.texture = serverData[childConfig.id];
+                    }
+
+                    return (
+                        <Component
+                            key={i}
+                            config={childConfig}
+                            globalScale={globalScale}
+                            onInteract={onInteract}
+                            parentWidth={width}
+                            parentHeight={height}
+                        />
+                    );
+                }) : null}
+            </View>
         </Pressable>
     );
 };
+
+const styles = StyleSheet.create({
+    button: {
+        // Default styles for the button
+    }
+});
+

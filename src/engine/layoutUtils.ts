@@ -22,8 +22,11 @@ export const getAnchorStyle = (
     const [x, y] = config.position || [ 0, 0 ];
 
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-    const containerWidth = parentWidth ?? screenWidth;
-    const containerHeight = parentHeight ?? screenHeight;
+
+    // Fallback to screenDims if no specific parent dims provided
+    // BUT we must use the active prop if defined, so React Native properly reflows component upon resize.
+    const containerWidth = parentWidth !== undefined ? parentWidth : screenWidth;
+    const containerHeight = parentHeight !== undefined ? parentHeight : screenHeight;
 
     const rawW = width || (customStyle?.width ? parseInt(String(customStyle.width)) : 0);
     const rawH = height || (customStyle?.height ? parseInt(String(customStyle.height)) : (customStyle?.fontSize ? parseInt(String(customStyle.fontSize)) : 0));
@@ -38,28 +41,31 @@ export const getAnchorStyle = (
 
     const [anchorX, anchorY] = anchor;
 
-    // --- Math for X axis---
-    if (anchorX === 0.5) {
-        // center X
-        style.left = (containerWidth - elementWidth) / 2 + offsetX;
-    } else if (anchorX > 0.5) {
-        // top right edge (1.0)
-        style.right = offsetX;
+    // --- Anchor + Position math ---
+    // Generic formula: containerSize * anchorA - elemSize * anchorA + offset
+    //   anchorX=0   → left edge,   offset moves right
+    //   anchorX=0.5 → center,      offset moves right
+    //   anchorX=1   → right edge,  offset moves LEFT (inward margin from right edge)
+    //
+    // Special case for anchorX/Y = 1: position is treated as inward margin,
+    // so offset is subtracted (matches BACK_BUTTON pattern: anchor=[1,0] position=[20,20]).
+
+    // --- Math for X axis ---
+    if (anchorX >= 1) {
+        // right edge: position acts as inward margin from the right
+        style.left = containerWidth - elementWidth - offsetX;
     } else {
-        // left edge (0.0)
-        style.left = offsetX;
+        // generic pivot formula works for anchor 0, 0.5, or any value in between
+        style.left = containerWidth * anchorX - elementWidth * anchorX + offsetX;
     }
 
     // --- Math for Y axis ---
-    if (anchorY === 0.5) {
-        // center Y
-        style.top = (containerHeight - elementHeight) / 2 + offsetY;
-    } else if (anchorY > 0.5) {
-        // Bottom edge (1.0)
-        style.bottom = offsetY;
+    if (anchorY >= 1) {
+        // bottom edge: position acts as inward margin from the bottom
+        style.top = containerHeight - elementHeight - offsetY;
     } else {
-        // Top edge (0.0)
-        style.top = offsetY;
+        // generic pivot formula
+        style.top = containerHeight * anchorY - elementHeight * anchorY + offsetY;
     }
 
     return style;

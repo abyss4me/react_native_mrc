@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobile Remote Controller | Connect</title>
+    
+    <meta name="apple-itunes-app" content="app-id=YOUR_APP_ID">
+
+    <style>
+        :root {
+            --primary: #007AFF;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --accent: #38bdf8;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 400px;
+            padding: 2.5rem;
+            background: var(--card);
+            border-radius: 28px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 20px;
+            margin: 0 auto 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+
+        h1 { font-size: 1.75rem; margin-bottom: 0.75rem; font-weight: 700; }
+        p { color: #94a3b8; font-size: 1rem; margin-bottom: 2rem; line-height: 1.6; }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 1.1rem;
+            border-radius: 14px;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            box-sizing: border-box;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+        }
+
+        /* Desktop QR Code Styling */
+        .qr-section {
+            display: flex;
+            justify-content: space-around;
+            gap: 15px;
+            margin-top: 1rem;
+        }
+
+        .qr-item {
+            flex: 1;
+            background: white;
+            padding: 10px;
+            border-radius: 12px;
+        }
+
+        .qr-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .qr-label {
+            color: #1e293b;
+            font-size: 0.65rem;
+            font-weight: bold;
+            margin-top: 5px;
+            display: block;
+        }
+
+        .hidden { display: none; }
+        
+        .instruction-step p { margin: 0; }
+    </style>
+</head>
+<body>
+
+ <div class="container">
+    <div class="logo">🎮</div>
+    <h1 id="main-title">Almost There!</h1>
+    <p id="main-desc">To start playing as a controller, please install our official app.</p>
+    
+    <a id="store-link" href="#" class="btn btn-primary">Get the App</a>
+
+    <div id="desktop-qr" class="hidden">
+        <div class="qr-section">
+            <div class="qr-item">
+                <img id="qr-android" src="" alt="Google Play QR">
+                <span class="qr-label">Google Play</span>
+            </div>
+            <div class="qr-item">
+                <img id="qr-ios" src="" alt="App Store QR">
+                <span class="qr-label">App Store</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="step-2" class="instruction-step" style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">
+        <p><strong>Step 2: Join the Game</strong><br>
+        Once installed, open the app and <strong>scan the QR code again</strong> on your TV to connect.</p>
+    </div>
+
+    <div style="font-size: 0.6rem; color: #475569; margin-top: 2rem;">
+        Session: <span id="room-display">...</span>
+    </div>
+</div>
+
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashedRoomId = urlParams.get('p');
+    const roomDisplay = document.getElementById('room-display');
+
+    if (hashedRoomId) {
+        roomDisplay.innerText = hashedRoomId.substring(0, 16) + "...";
+    } else {
+        roomDisplay.innerText = "No session detected";
+    }
+
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const storeLink = document.getElementById('store-link');
+    const desktopQr = document.getElementById('desktop-qr');
+
+    // App Store URLs
+    const androidUrl = "https://play.google.com/store/apps/details?id=com.playworks.mrc";
+    const iosUrl = "https://apps.apple.com/app/idYOUR_APP_ID";
+
+    // 1. Detection Logic
+    const isIOS = /iPad|iPhone|iPod/.test(userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
+    const isAndroid = /android/i.test(userAgent) || 
+                      (/Linux/i.test(userAgent) && !isIOS && navigator.maxTouchPoints > 1);
+
+    if (isAndroid) {
+        storeLink.href = androidUrl;
+        storeLink.innerText = "Get it on Google Play";
+    } else if (isIOS) {
+        storeLink.href = iosUrl;
+        storeLink.innerText = "Download on the App Store";
+    } else {
+        // DESKTOP FALLBACK: Show QR Codes instead of the button
+        storeLink.classList.add('hidden');
+        desktopQr.classList.remove('hidden');
+        
+        document.getElementById('main-title').innerText = "Scan to Download";
+        document.getElementById('main-desc').innerText = "Scan the QR code for your device to install the controller app.";
+
+        // Generate QR codes using a public API
+        document.getElementById('qr-android').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(androidUrl)}`;
+        document.getElementById('qr-ios').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(iosUrl)}`;
+    }
+
+    // 2. Manual Bridge (Clipboard)
+    document.body.addEventListener('click', () => {
+        if (hashedRoomId && navigator.clipboard) {
+            navigator.clipboard.writeText(hashedRoomId).catch(() => {});
+        }
+    }, { once: true });
+</script>
+</body>
+</html>

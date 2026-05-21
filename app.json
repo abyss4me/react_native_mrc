@@ -21,7 +21,7 @@
             {
               "scheme": "https",
               "host": "h5.play.works",
-              "pathPrefix": "/dev/pavlou/wheel_of_fortune/apps/wheel_of_fortune/mobile_controller/"
+              "pathPrefix": "/dev/pavlou/mrc_engine/"
             }
           ],
           "category": [
@@ -52,8 +52,7 @@
 	  [
 		"expo-splash-screen",
 		{
-		  "image": "./assets/images/background.jpg",
-		  "imageWidth": 200,
+		  "image": "./assets/images/splash.png",
 		  "resizeMode": "contain",
 		  "backgroundColor": "#ffffff",
 		  "dark": { "backgroundColor": "#000000" }

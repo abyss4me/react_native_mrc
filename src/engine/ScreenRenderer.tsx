@@ -8,6 +8,7 @@ import {
     BASE_DESIGN_WIDTH,
     BASE_DESIGN_HEIGHT
 } from '../utils/constants';
+import { ScreenConfig, BackgroundConfig, TemplateMap } from '../types/LayoutTypes';
 
 // Recursive function for data injection
 const recursiveProcessConfig = (rawConfig: any, serverData: any): any => {
@@ -17,7 +18,12 @@ const recursiveProcessConfig = (rawConfig: any, serverData: any): any => {
     // 2. Merge data for this ID
     if (finalConfig.id && serverData.components && serverData.components[finalConfig.id]) {
         const updates = serverData.components[finalConfig.id];
+        const baseStyle = finalConfig.style; // Preserve layout/template style before overwrite
         Object.assign(finalConfig, updates);
+        // Deep-merge style: template/layout styles act as base, server updates override specific keys
+        if (baseStyle) {
+            finalConfig.style = { ...baseStyle, ...(updates.style || {}) };
+        }
     }
 
     // 3. Recurse for children
@@ -31,18 +37,17 @@ const recursiveProcessConfig = (rawConfig: any, serverData: any): any => {
 };
 
 interface ScreenRendererProps {
-    screenConfig: any; // ScreenConfig type from ProtocolTypes
-    globalBackground?: any;
+    screenConfig: ScreenConfig;
+    globalBackground?: BackgroundConfig;
+    templates?: TemplateMap;
 }
 
-const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig, globalBackground }) => {
+const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig, globalBackground, templates }) => {
     const [appVersion, setAppVersion] = useState('');
     const { serverData, sendMessage } = useNetwork();
-
     useEffect(() => {
         const version: string = Application.nativeApplicationVersion;
         setAppVersion(version);
-        console.log("App------------->", appVersion)
     }, []);
 
     // 1. Get phone screen dimensions
@@ -88,6 +93,9 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig, globalBac
                 config={finalConfig}
                 globalScale={uiScale}
                 onInteract={handleAction}
+                parentWidth={width}
+                parentHeight={height}
+                templates={templates}
             />
         );
     };

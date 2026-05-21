@@ -4,7 +4,7 @@
  */
 
 // ==========================================
-// 1. COMPONENT STATE
+// COMPONENT STATE
 // ==========================================
 
 /**
@@ -29,7 +29,7 @@ export interface ComponentState {
 }
 
 // ==========================================
-// 2. GAME STATE (The Data Payload)
+// GAME STATE (The Data Payload)
 // ==========================================
 
 /**
@@ -48,7 +48,30 @@ export interface GameState {
 
 
 // ==========================================
-// 3. INCOMING MESSAGES ( Server -> Client )
+// PROTOCOL MESSAGE TYPE CONSTANTS
+// ==========================================
+
+/**
+ * All server <-> client message type identifiers in one place.
+ * Use these instead of raw strings to prevent typos and ease future refactoring.
+ */
+export const MessageTypes = {
+    // Server -> Client
+    SET_SCREEN:             "SET_SCREEN",
+    UPDATE_COMPONENTS:      "UPDATE_COMPONENTS",
+    TRIGGER_HAPTICS:        "TRIGGER_HAPTICS",
+    SHOW_ERROR:             "SHOW_ERROR",
+    GAME_STATE:             "gameState",
+
+    // Internal (ClientManager -> App)
+    CONNECTION_STATUS:      "CONNECTION_STATUS",
+    CONNECTION_TIMEOUT:     "CONNECTION_TIMEOUT",
+    CLEAR_CONNECTION_ERROR: "CLEAR_CONNECTION_ERROR",
+} as const;
+
+
+// ==========================================
+// INCOMING MESSAGES ( Server -> Client )
 // ==========================================
 
 /**
@@ -56,36 +79,98 @@ export interface GameState {
  * Instruction to switch layout and hydrate state immediately.
  */
 export interface SetScreenMessage {
-    type: "SET_SCREEN";
-    data: GameState & { 
-        /** The ID of the screen to load from main_layout.json */
+    type: typeof MessageTypes.SET_SCREEN;
+    data: GameState & {
+        /** The ID of the screen to load from layout.json */
         screenId: string; 
     };
 }
 
 /**
- * Message: UPDATE_DATA
+ * Message: UPDATE_COMPONENTS
  * Instruction to merge new data into the current state.
  */
 export interface UpdateDataMessage {
-    type: "UPDATE_DATA";
+    type: typeof MessageTypes.UPDATE_COMPONENTS;
     data: GameState; // Just the state data, no screenId required
 }
 
 /**
- * Message: CONNECTION_ERROR
+ * Message: gameState
+ */
+export interface GameStateMessage {
+    type: typeof MessageTypes.GAME_STATE;
+    data?: {
+        languageCode: string;
+        state: {
+            controllerConfigURL: string;
+            data?: GameState
+        },
+    };
+}
+
+/**
+ * If a player takes damage, shoots a gun, or wins, the game can tell the phone to vibrate.
+ */
+export interface TriggerHapticsMessage {
+    type: typeof MessageTypes.TRIGGER_HAPTICS;
+    data?: {
+        pattern?: number[]; // React Native Vibration pattern is an array of numbers (e.g. [0, 200, 100, 200])
+        duration?: number;
+    };
+}
+
+/**
+ * A lightweight way for the server to flash a quick error at the top/bottom of the phone (e.g., "Not your turn!") without writing a full UPDATE_COMPONENTS layout change
+ */
+export interface ShowErrorToastMessage {
+    type: typeof MessageTypes.SHOW_ERROR;
+    data?: {
+        message: string;
+    };
+}
+
+
+// ==========================================
+// INTERNAL COMMUNICATION MESSAGES
+// ==========================================
+/**
+ * Message: CONNECTION_ERROR, internal message to trigger the disconnect overlay on the client
  */
 export interface ConnectionErrorMessage {
-    type: "CONNECTION_STATUS";
+    type: typeof MessageTypes.CONNECTION_STATUS;
     data?: {
         isConnected?: boolean;
     };
 }
 
-export type ServerMessage = 
+/**
+ * Message: CONNECTION_TIMEOUT, internal message to trigger the timeout screen on the client after failed reconnection attempts
+ */
+export interface ConnectionTimeoutErrorMessage {
+    type: typeof MessageTypes.CONNECTION_TIMEOUT;
+    data?: {
+        message: string;
+    };
+}
+
+/**
+ * Message: CLEAR_CONNECTION_ERROR, internal message to clear any connection error messages and return to the normal game screen
+ */
+export interface ClearConnectionErrorMessage {
+    type: typeof MessageTypes.CLEAR_CONNECTION_ERROR;
+}
+
+
+export type ServerMessage =
     | SetScreenMessage 
     | UpdateDataMessage 
-    | ConnectionErrorMessage;
+    | ConnectionErrorMessage
+    | GameStateMessage
+    | TriggerHapticsMessage
+    | ShowErrorToastMessage
+    | ConnectionTimeoutErrorMessage
+    | ClearConnectionErrorMessage;
 
 // ==========================================
 // 4. OUTGOING MESSAGES ( Client -> Server )

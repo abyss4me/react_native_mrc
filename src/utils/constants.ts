@@ -5,8 +5,10 @@
 
 // Your WebSocket server URL
 // WARNING: "localhost" does not work on a real Android/iOS device.
-// Use your PC's IP address, for example: "ws://192.168.1.5:8080"
-export const HOST_SERVER_URL = "ws://192.168.0.100:8080"; //TODO:
+
+export const HOST_SERVER_URL = "https://multiplayer.play.works";
+
+export const PWMP_CLIENT_URL = "https://service.play.works/service/sdk/libs/pwmp_client.min.js";
 
 export const TRANSPORT = ["websocket", "polling"];
 
@@ -14,13 +16,20 @@ export const TRANSPORT = ["websocket", "polling"];
 export const DEVICE_ID_STORAGE_KEY = "mp_rc_device_id";
 
 // Connection timeout (ms)
-export const CONNECTION_TIMEOUT_DURATION = 3000;
+export const CONNECTION_TIMEOUT_DURATION = 60000;
 
 // Development mode (enables additional logs or mock data)
 export const DEV_MODE = true;
 
+// Current engine version — must match or exceed layout's minClientVersion
+export const ENGINE_VERSION = "1.0.0";
+
+// Screen IDs
+export const SCREEN = {
+    HOME:       'HOME_SCREEN',
+    TRANSITION: 'TRANSITION_SCREEN',
+    DEV:        'JOIN_PLAYER_SCREEN', // Default screen for web/debug
+} as const;
+
 export const BASE_DESIGN_WIDTH = 844;
 export const BASE_DESIGN_HEIGHT = 390;
-
-// Protocol or application version
-export const APP_VERSION = "1.0.0";

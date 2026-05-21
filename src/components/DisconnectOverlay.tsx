@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useNetwork } from '../engine/NetworkContext';
 
-const DisconnectOverlay: React.FC = () => {
-    const { isDisconnected } = useNetwork();
+const DisconnectOverlay: React.FC<{ hidden?: boolean }> = ({ hidden }) => {
+    const { isDisconnected, reconnect } = useNetwork();
 
-    if (!isDisconnected) {
+    if (!isDisconnected || hidden) {
         return null;
     }
 
@@ -15,6 +15,9 @@ const DisconnectOverlay: React.FC = () => {
                 <Text style={styles.title}>Connection Lost</Text>
                 <Text style={styles.message}>Attempting to reconnect...</Text>
                 <ActivityIndicator size="large" color="#FFFFFF" style={styles.spinner} />
+                <TouchableOpacity style={styles.button} onPress={reconnect}>
+                    <Text style={styles.buttonText}>Reconnect</Text>
+                </TouchableOpacity>
             </View>
         </View>
     );
@@ -46,6 +49,19 @@ const styles = StyleSheet.create({
     },
     spinner: {
         marginTop: 10,
+        marginBottom: 20,
+    },
+    button: {
+        backgroundColor: '#4CAF50',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 8,
+        marginTop: 10,
+    },
+    buttonText: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: 'bold',
     },
 });
 
