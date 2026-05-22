@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNetwork } from '../engine/NetworkContext';
-import { getAnchorStyle } from '../engine/layoutUtils';
+import { getAnchorStyle } from '../engine/LayoutUtils';
 import { ComponentMap } from './ComponentRegistry';
 
 export const Container = ({ config, globalScale = 1, parentWidth, parentHeight, onInteract }: any) => {

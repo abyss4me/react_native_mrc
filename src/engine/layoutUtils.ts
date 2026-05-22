@@ -1,4 +1,4 @@
-// src/engine/layoutUtils.ts
+// src/engine/LayoutUtils.ts
 import { ViewStyle, Dimensions } from 'react-native';
 
 interface LayoutConfig {

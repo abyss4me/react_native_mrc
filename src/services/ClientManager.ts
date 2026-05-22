@@ -6,9 +6,9 @@ import {
     DEVICE_ID_STORAGE_KEY,
     CONNECTION_TIMEOUT_DURATION, 
     DEV_MODE 
-} from '../utils/constants';
+} from '../constants';
 import {MessageTypes, ServerMessage} from '../types/ProtocolTypes';
-import {loadPwmpClient} from '../utils/pwmpLoader';
+import {loadPwmpClient} from '../utils/ClientLibLoader';
 
 // UMD-bundle: PWMP is like named-field in module.exports
 const PWMP = (pwmpLib as any).PWMP;

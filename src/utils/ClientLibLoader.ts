@@ -1,10 +1,10 @@
 /**
- * src/utils/pwmpLoader.ts
+ * src/utils/ClientLibLoader.ts
  * Dynamically fetches and evaluates the PWMP client library from a remote URL.
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import { PWMP_CLIENT_URL } from './constants';
+import { PWMP_CLIENT_URL } from '../constants';
 
 let cachedPWMP: any = null;
 
@@ -19,12 +19,12 @@ export async function loadPwmpClient(): Promise<any> {
 
     const localUri = FileSystem.cacheDirectory + 'pwmp_client.min.js';
 
-    console.log(`[pwmpLoader] Downloading PWMP client from: ${PWMP_CLIENT_URL}`);
+    console.log(`[ClientLibLoader] Downloading PWMP client from: ${PWMP_CLIENT_URL}`);
     const { status } = await FileSystem.downloadAsync(PWMP_CLIENT_URL, localUri);
-    if (status !== 200) throw new Error(`[pwmpLoader] HTTP ${status} — failed to download PWMP client`);
+    if (status !== 200) throw new Error(`[ClientLibLoader] HTTP ${status} — failed to download PWMP client`);
 
     const src = await FileSystem.readAsStringAsync(localUri);
-    if (!src) throw new Error('[pwmpLoader] Downloaded file is empty');
+    if (!src) throw new Error('[ClientLibLoader] Downloaded file is empty');
 
     // Evaluate the UMD bundle and capture its exports
     const mod: { exports: any } = { exports: {} };
@@ -32,9 +32,9 @@ export async function loadPwmpClient(): Promise<any> {
     fn(mod, mod.exports);
 
     const pwmp = mod.exports?.PWMP ?? mod.exports;
-    if (!pwmp) throw new Error('[pwmpLoader] PWMP export not found in downloaded bundle');
+    if (!pwmp) throw new Error('[ClientLibLoader] PWMP export not found in downloaded bundle');
 
-    console.log('[pwmpLoader] PWMP client loaded successfully.');
+    console.log('[ClientLibLoader] PWMP client loaded successfully.');
     cachedPWMP = pwmp;
     return cachedPWMP;
 }

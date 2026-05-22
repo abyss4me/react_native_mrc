@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useRef, ReactNode } from 'react';
 import { Vibration, Platform, ToastAndroid, Alert } from 'react-native';
-import ClientManager from '../logic/ClientManager'; // Make sure the path is correct
+import ClientManager from '../services/ClientManager'; // Make sure the path is correct
 import { ServerMessage, GameState, MessageTypes } from '../types/ProtocolTypes'; // Import your types
 
 interface NetworkContextType {

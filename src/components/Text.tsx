@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as Font from 'expo-font'; // Add Expo Font
 import { Text, View } from 'react-native';
-import { getAnchorStyle } from '../engine/layoutUtils';
+import { getAnchorStyle } from '../engine/LayoutUtils';
 
 
 export const TextComponent = ({ config, globalScale = 1, parentWidth, parentHeight }: any) => {

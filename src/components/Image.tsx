@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, View, StyleSheet } from 'react-native';
-import { getAnchorStyle } from '../engine/layoutUtils';
+import { getAnchorStyle } from '../engine/LayoutUtils';
 
 export const ImageComponent = ({ config, globalScale = 1, parentWidth, parentHeight }: any) => {
     const anchorStyle = getAnchorStyle(config, globalScale, parentWidth, parentHeight);

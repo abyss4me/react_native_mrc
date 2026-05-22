@@ -6,7 +6,7 @@ import {
     KeyboardAvoidingView,
     Platform
 } from 'react-native';
-import { ENGINE_VERSION } from '../utils/constants';
+import { ENGINE_VERSION } from '../constants';
 
 interface HomeScreenProps {
     // No props needed for this simplified view

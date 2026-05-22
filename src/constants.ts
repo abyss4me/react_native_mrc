@@ -1,5 +1,5 @@
 /**
- * src/utils/constants.ts
+ * src/constants.ts
  * Global project settings
  */
 
@@ -33,3 +33,4 @@ export const SCREEN = {
 
 export const BASE_DESIGN_WIDTH = 844;
 export const BASE_DESIGN_HEIGHT = 390;
+

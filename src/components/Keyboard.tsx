@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import { getAnchorStyle } from '../engine/layoutUtils';
+import { getAnchorStyle } from '../engine/LayoutUtils';
 import { Button } from './Button';
 import { useNetwork } from '../engine/NetworkContext';
 

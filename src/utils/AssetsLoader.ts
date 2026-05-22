@@ -1,6 +1,6 @@
 import { Image } from 'react-native';
 import { Asset } from 'expo-asset';
-import { ENGINE_VERSION } from './constants';
+import { ENGINE_VERSION } from '../constants';
 
 /**
  * Compares two version strings (e.g. "1.2.3").

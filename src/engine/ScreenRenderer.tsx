@@ -7,7 +7,7 @@ import { useNetwork } from './NetworkContext';
 import {
     BASE_DESIGN_WIDTH,
     BASE_DESIGN_HEIGHT
-} from '../utils/constants';
+} from '../constants';
 import { ScreenConfig, BackgroundConfig, TemplateMap } from '../types/LayoutTypes';
 
 // Recursive function for data injection
