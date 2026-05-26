@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as pwmpLib from '../libs/pwmp_client.min.js';
+
 import {
     HOST_SERVER_URL, 
     TRANSPORT,
@@ -7,11 +7,8 @@ import {
     CONNECTION_TIMEOUT_DURATION, 
     DEV_MODE 
 } from '../constants';
-import {MessageTypes, ServerMessage} from '../types/ProtocolTypes';
+import {GameState, MessageTypes, ServerMessage} from '../types/ProtocolTypes';
 import {loadPwmpClient} from '../utils/ClientLibLoader';
-
-// UMD-bundle: PWMP is like named-field in module.exports
-const PWMP = (pwmpLib as any).PWMP;
 
 // Interface for the application controller (NetworkContext)
 interface AppController {
@@ -46,46 +43,61 @@ export default class ClientManager {
         console.log("⚠️ DEV_MODE: Running simulation sequences...");
 
         // Simulation 1: Switch to the connection screen after 0.5 sec
+       /* setTimeout(() => {
+            console.log("Simulating SET_SCREEN -> CONNECT_SCREEN");
+            this.appController.dispatch({
+                type: MessageTypes.GAME_STATE,
+                data: {
+                    languageCode: "us",
+                    state: {
+                        controllerConfigURL: "https://h5.play.works/dev/pavlou/mrc_engine/config.json",
+                        data: {
+                            components: {
+                                avatar_url: {"texture": "https://service.play.works/shared/assets/avatars/8_ball.png"},
+                                player_name: {"content": "PAVLO USHAKOV"}
+                            }
+                        }
+                    }
+                }
+            } as any);
+        }, 5);
+        return*/
         setTimeout(() => {
             console.log("Simulating SET_SCREEN -> CONNECT_SCREEN");
             this.appController.dispatch({
                 type: MessageTypes.SET_SCREEN,
-                data: {
+                //data: {
                     data: {
-                        screenId: "WAIT_SCREEN",
+                        screenId: "ACTION_SCREEN",
                         // Initial state of components
                         components: {
                             money: {content: "1000"},
                             avatar: {texture: "https://service.play.works/shared/assets/avatars/8_ball.png"},
                             name: {content: "JOHN"},
                             avatar_group: {visible: true},
-                            player_bg: {texture: `player${1}.png`},
-                            money_val: {content: "500$"},
+                            player_bg: {texture: `player${1}.png`}
                         }
                     }
-                }
+               // }
             } as any);
         }, 5);
-       /* setTimeout(() => {
+        setTimeout(() => {
             console.log("Simulating SET_SCREEN -> CONNECT_SCREEN");
             this.appController.dispatch({
                 type: MessageTypes.UPDATE_COMPONENTS,
-                data: {
+               // data: {
                     data: {
-                        screenId: "VOWEL_SCREEN",
-                        // Initial state of components
                         components: {
                             money: {content: "3000"},
                             avatar: {texture: "https://service.play.works/shared/assets/avatars/8_ball.png"},
-                            name: {content: "JOHN"},
+                            name: {content: "PAUL", style: {color: "#ff0000"}},
                             avatar_group: {visible: true},
-                            player_bg: {texture: `player${1}.png`},
-                            money_val: {content: "5100$"},
+                            test: {style: {color: "#00ff00"}, content: "TEST COMPONENT"},
                         }
                     }
-                }
+               // }
             } as ServerMessage);
-        }, 2000);*/
+        }, 2000);
 
     }
 
@@ -140,7 +152,7 @@ export default class ClientManager {
     }
 
     public onUserDisconnected = () => {
-        if (!this.client) return;
+        if (!this.client || !this.isConnected) return; // guard: ignore if already disconnected
         this.isConnected = false;
         console.log("User disconnected");
         this.appController.dispatch({
@@ -150,7 +162,7 @@ export default class ClientManager {
     }
 
     public onUserReconnected = () => {
-        if (!this.client) return;
+        if (!this.client || this.isConnected) return; // guard: ignore if already connected
         this.isConnected = true;
         console.log("User reconnected");
         this.appController.dispatch({
@@ -159,17 +171,48 @@ export default class ClientManager {
         } as ServerMessage);
     }
 
-    public onRoomUpdated = () => {
+    public onRoomUpdated = (roomData?: any) => {
         if (!this.client) return;
+        // When returning from background, onConnected does NOT fire.
+        // onRoomUpdated is one of the two signals that the auto-reconnect succeeded.
+        // Clear the timeout and notify the UI that connection is alive.
+        this.isConnected = true;
+        this.clearErrorConnectionTimeout();
+        this.appController.dispatch({
+            type: MessageTypes.CONNECTION_STATUS,
+            data: { isConnected: true }
+        } as ServerMessage);
+        if (this.appController.onConnectionEstablished) {
+            this.appController.onConnectionEstablished();
+        }
     }
 
     public onUserMessage = (data: any, payload?: any) => {
         if (!this.client) return;
         this.isConnected = true;
+
+        // GAME_STATE is the other signal that auto-reconnect succeeded after background sleep.
+        // onConnected does NOT fire in this case, so we must clear the timeout and signal
+        // the UI here — otherwise TransitionScreen stays stuck forever.
+        if (data?.type === MessageTypes.GAME_STATE) {
+            this.clearErrorConnectionTimeout();
+            if (this.appController.onConnectionEstablished) {
+                this.appController.onConnectionEstablished();
+            }
+        }
+
         this.appController.dispatch({
             ...data,
             ...payload
         } as ServerMessage);
+    }
+
+    public sendMessage = (type: string, data?: any) => {
+        if (this.client && this.isConnected) {
+            this.client.sendMessage({ type, data });
+        } else {
+            console.warn(`Cannot send message: client is ${this.client ? 'present' : 'null'}, isConnected is ${this.isConnected}`);
+        }
     }
 
     public onConnected = () => {
@@ -184,15 +227,6 @@ export default class ClientManager {
             type: MessageTypes.CONNECTION_STATUS,
             data: { isConnected: true }
         } as ServerMessage);
-    }
-
-    public sendMessage = (type: string, data?: any) => {
-        console.log(`[ClientManager] Attempting to send message. isConnected: ${this.isConnected}, client exists: ${!!this.client}`);
-        if (this.client && this.isConnected) {
-            this.client.sendMessage({ type, data });
-        } else {
-            console.warn(`Cannot send message: client is ${this.client ? 'present' : 'null'}, isConnected is ${this.isConnected}`);
-        }
     }
 
     // --- Helpers ---

@@ -1,86 +1,61 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import * as Application from 'expo-application';
-import { View, ImageBackground, StyleSheet, useWindowDimensions } from 'react-native';
-import { ComponentMap } from '../components'; // Import the component map
+import React, { useEffect, useCallback } from 'react';
+import { View, ImageBackground, StyleSheet } from 'react-native';
+import { ComponentMap } from '../components';
 import { useNetwork } from './NetworkContext';
-
-import {
-    BASE_DESIGN_WIDTH,
-    BASE_DESIGN_HEIGHT
-} from '../constants';
-import { ScreenConfig, BackgroundConfig, TemplateMap } from '../types/LayoutTypes';
-
-// Recursive function for data injection
-const recursiveProcessConfig = (rawConfig: any, serverData: any): any => {
-    // 1. Clone the config
-    const finalConfig = { ...rawConfig };
-
-    // 2. Merge data for this ID
-    if (finalConfig.id && serverData.components && serverData.components[finalConfig.id]) {
-        const updates = serverData.components[finalConfig.id];
-        const baseStyle = finalConfig.style; // Preserve layout/template style before overwrite
-        Object.assign(finalConfig, updates);
-        // Deep-merge style: template/layout styles act as base, server updates override specific keys
-        if (baseStyle) {
-            finalConfig.style = { ...baseStyle, ...(updates.style || {}) };
-        }
-    }
-
-    // 3. Recurse for children
-    if (finalConfig.layout && Array.isArray(finalConfig.layout)) {
-        finalConfig.layout = finalConfig.layout.map((child: any) =>
-            recursiveProcessConfig(child, serverData)
-        );
-    }
-
-    return finalConfig;
-};
+import { useInputGuard } from './InputGuardContext';
+import { useLayout } from './LayoutContext';
+import InputGuard from '../components/InputGuard';
+import useUIScale from './useUIScale';
+import resolveBackground from './resolveBackground';
+import { resolveElementConfig, recursiveProcessConfig } from './LayoutUtils';
+import { ScreenConfig } from '../types/LayoutTypes';
 
 interface ScreenRendererProps {
-    screenConfig: ScreenConfig;
-    globalBackground?: BackgroundConfig;
-    templates?: TemplateMap;
+    screenConfig: ScreenConfig | undefined;
 }
 
-const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig, globalBackground, templates }) => {
-    const [appVersion, setAppVersion] = useState('');
+const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig }) => {
     const { serverData, sendMessage } = useNetwork();
+    const { unlockInput } = useInputGuard();
+    const { layouts } = useLayout();
+    const { width, height, uiScale } = useUIScale();
+
+    const globalBackground = layouts?.background;
+
+    // Unlock input shield when a new screen is rendered.
+    // This is the authoritative unlock point — no server round-trip, no timeout.
     useEffect(() => {
-        const version: string = Application.nativeApplicationVersion;
-        setAppVersion(version);
-    }, []);
+        if (screenConfig) {
+            unlockInput();
+        }
+    }, [screenConfig, unlockInput]);
 
-    // 1. Get phone screen dimensions
-    const { width, height } = useWindowDimensions();
-
-    // 2. Calculate Scale.
-    // Assume the base design is drawn for a width of 1000px (or another value from your layout)
-    // If the phone is in landscape (width > height), use width as the basis.
-
-    // Scale proportionally
-    const scaleX = width / BASE_DESIGN_WIDTH;
-    const scaleY = height / BASE_DESIGN_HEIGHT;
-
-    // Use the minimum scale to maintain aspect ratio
-    const uiScale = Math.min(scaleX, scaleY);
-
-    // If there's no config, render nothing or show a loader
-    if (!screenConfig) {
-        return <View style={styles.container} />; // Black screen
-    }
-
-    const handleAction = (type: string, payload: any) => {
-        // Forward events to the server
+    const handleAction = useCallback((type: string, payload: any) => {
         sendMessage(type, payload);
-    };
+    }, [sendMessage]);
 
-    const renderElement = (el: any, index: number) => {
-        // --- 1. Data Processing (Merge state from server) ---
-        const finalConfig = recursiveProcessConfig(el, serverData);
-        // --- 2. Visibility Check ---
+    const baseUrl = layouts?.settings?.assetsBaseUrl || '';
+
+    const renderElement = useCallback((el: any, index: number) => {
+        // 1. Style Resolution + Asset URL prepending
+        let resolvedEl = el;
+        try {
+            if (layouts?.styles) {
+                resolvedEl = resolveElementConfig(layouts.styles, el, baseUrl);
+            } else if (baseUrl) {
+                resolvedEl = resolveElementConfig({}, el, baseUrl);
+            }
+        } catch (e) {
+            console.error('[ScreenRenderer] resolveElementConfig failed for element:', el, e);
+        }
+
+        // 2. Data Processing — merge state from server
+        const finalConfig = recursiveProcessConfig(resolvedEl, serverData);
+
+        // 3. Visibility Check
         if (finalConfig.visible === false) return null;
 
-        // --- 3. Component Selection ---
+        // 4. Component Selection
         const Component = ComponentMap[finalConfig.type];
         if (!Component) {
             console.warn(`Unknown component type: ${finalConfig.type}`);
@@ -95,53 +70,35 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig, globalBac
                 onInteract={handleAction}
                 parentWidth={width}
                 parentHeight={height}
-                templates={templates}
             />
         );
-    };
+    }, [layouts, baseUrl, serverData, uiScale, handleAction, width, height]);
 
-    // --- Background Logic ---
-    // Priority: Screen-specific > Global > Fallback
-    let bgSource = null;
-    let bgColor = '#000'; // Default fallback
-
-    const screenBg = screenConfig.background;
-    const globalBg = globalBackground;
-
-    if (screenBg) {
-        if (typeof screenBg === 'string' && screenBg.startsWith('http')) {
-            bgSource = { uri: screenBg };
-        } else if (typeof screenBg === 'object' && screenBg.texture) {
-            bgSource = { uri: screenBg.texture };
-        } else if (typeof screenBg === 'string') {
-            // Potentially a color string
-            bgColor = screenBg;
-        }
-    } else if (globalBg) {
-        if (typeof globalBg === 'string' && globalBg.startsWith('http')) {
-            bgSource = { uri: globalBg };
-        } else if (typeof globalBg === 'object' && globalBg.texture) {
-            bgSource = { uri: globalBg.texture };
-        } else if (typeof globalBg === 'string') {
-            bgColor = globalBg;
-        }
+    if (!screenConfig) {
+        return <View style={styles.container} />;
     }
+
+    const { bgSource, bgColor } = resolveBackground(
+        screenConfig.background,
+        globalBackground,
+        baseUrl
+    );
+
+    const children = screenConfig.layout.map((el: any, i: number) => renderElement(el, i));
 
     return (
         <View style={styles.container}>
             {bgSource ? (
-                <ImageBackground
-                    source={bgSource}
-                    style={styles.background}
-                    resizeMode="cover"
-                >
-                     {screenConfig.layout.map((el: any, i: number) => renderElement(el, i))}
+                <ImageBackground source={bgSource} style={styles.background} resizeMode="cover">
+                    {children}
                 </ImageBackground>
             ) : (
                 <View style={[styles.background, { backgroundColor: bgColor }]}>
-                     {screenConfig.layout.map((el: any, i: number) => renderElement(el, i))}
+                    {children}
                 </View>
             )}
+            {/* Transparent shield — blocks all touches during screen transitions */}
+            <InputGuard />
         </View>
     );
 };
@@ -155,7 +112,8 @@ const styles = StyleSheet.create({
         flex: 1,
         width: '100%',
         height: '100%',
-    }
+    },
 });
 
 export default ScreenRenderer;
+

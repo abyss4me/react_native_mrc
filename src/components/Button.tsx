@@ -7,13 +7,14 @@ import {
     StyleSheet,
     ViewStyle,
     TextStyle,
-    ImageStyle,
     Vibration
 } from 'react-native';
 import { useNetwork } from '../engine/NetworkContext';
 import { getAnchorStyle } from '../engine/LayoutUtils';
 import { ComponentMap } from './ComponentRegistry';
 import { ButtonStates } from '../types/LayoutTypes';
+import {useLayout} from "../engine/LayoutContext";
+import {useInputGuard} from "../engine/InputGuardContext";
 
 // --- Types ---
 
@@ -26,6 +27,8 @@ interface ButtonConfig {
     disabled?: boolean;
     visible?: boolean;
     texture?: string;
+    cooldown?: number;
+    lockScreen?: boolean;
 
     // NEW: User-experience enhancements
     hitbox?: number;  // Expands the clickable area beyond the visual size
@@ -60,6 +63,8 @@ interface ButtonProps {
 
 export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentWidth, parentHeight, onInteract }) => {
     const { serverData } = useNetwork();
+    const { lockInput } = useInputGuard();
+    const { layouts, settings } = useLayout();
     const [isPressed, setIsPressed] = useState(false);
 
     // 1. State Check (Disabled)
@@ -113,17 +118,23 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
 
     // --- Event Handlers ---
 
+    // Set cooldown time value with the following priority: config.cooldown > settings.defaultCooldown > 50ms
+    const defaultCooldown = (settings.defaultCooldown !== undefined) ? (settings.defaultCooldown <= 0 ? 50 : settings.defaultCooldown) : 50; // Fallback to 50ms if defaultCooldown is not set or invalid
+    const cooldownDuration = config?.cooldown !== undefined ? config?.cooldown : defaultCooldown;
+
     const handlePressIn = () => {
         if (isDisabled || isCoolingDown) return;
         setIsPressed(true);
 
+        // Instant input lock — fires synchronously before pressOut/network, zero delay.
+        // The shield stays up until ScreenRenderer detects the new screen and calls unlockInput().
+        if (config.lockScreen) {
+            lockInput();
+        }
+
         // Immediate local haptic feedback if configured
         if (config.haptic) {
-            const hapticDurations = {
-                light: 50,
-                medium: 100,
-                heavy: 200
-            };
+            const hapticDurations = { light: 50, medium: 100, heavy: 200 };
             Vibration.vibrate(hapticDurations[config.haptic] || 50);
         }
 
@@ -154,10 +165,12 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
         }
 
         const navKeyCode = config.keyCode || (!config.action ? config.id : null);
+        let eventWasFired: boolean = true;
 
         // If it is standard navigation, fire keyUp.
         if (navKeyCode && onInteract) {
             onInteract("keyUp", { keyCode: navKeyCode });
+            eventWasFired = true;
         }
         // If it HAS an action, it is a custom game trigger (e.g. "submit", "fire_weapon")
         else if (config.action && onInteract) {
@@ -166,12 +179,18 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
                 action: config.action,
                 ...(config.customData ? { customData: config.customData } : {})
             });
+            eventWasFired = true;
+        }
 
-            // Apply immediate local debounce to prevent "Double Submit" before SET_INPUT_GUARD arrives
+        // Apply cooldown if configured and an event was fired
+        // Cooldown is needed to prevent issues with rapid taps or holds, especially for navigation keys that can cause unintended multiple triggers. It ensures a minimum delay between interactions, improving user experience and preventing potential input flooding.
+        setIsCoolingDown(true);
+        if (eventWasFired && cooldownDuration > 0) {
+
             setIsCoolingDown(true);
             debounceTimeoutRef.current = setTimeout(() => {
                 setIsCoolingDown(false);
-            }, 500); // 500ms grace period for the server to respond with SET_INPUT_GUARD
+            }, cooldownDuration);
         }
     };
 

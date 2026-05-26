@@ -7,6 +7,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Engine Imports
 import { NetworkProvider } from './engine/NetworkContext';
+import { LayoutContext } from './engine/LayoutContext';
+import { InputGuardProvider } from './engine/InputGuardContext';
+import { LayoutConfig, LayoutSettings } from './types/LayoutTypes';
 import ScreenRenderer from './engine/ScreenRenderer';
 import { preloadAssets, checkLayoutCompatibility } from './utils/AssetsLoader';
 import { preloadRemoteFonts } from './utils/FontLoader';
@@ -26,6 +29,13 @@ import localLayouts from '../assets/layouts/layout.json';
 
 SplashScreen.preventAutoHideAsync();
 
+// Disable text selection on web to prevent accidental copy on desktop/mobile browsers
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    const style = document.createElement('style');
+    style.textContent = '* { user-select: none !important; -webkit-user-select: none !important; }';
+    document.head.appendChild(style);
+}
+
 const DEFAULT_DEV_SCREEN = SCREEN.DEV;
 
 export default function Main() {
@@ -36,7 +46,7 @@ export default function Main() {
     );
     const [initialRoomId, setInitialRoomId] = useState<string | null>(null);
     const [configUrl, setConfigUrl] = useState<string | null>(null);
-    const [layouts, setLayouts] = useState<any>(localLayouts); // Start with local layouts
+    const [layouts, setLayouts] = useState<LayoutConfig>(localLayouts as unknown as LayoutConfig); // Start with local layouts
     const [isLoadingConfig, setIsLoadingConfig] = useState(false);
     const [isConfigLoadingError, setConfigLoadingError] = useState(false);
 
@@ -172,8 +182,9 @@ export default function Main() {
         }
     }, [layouts?.settings?.orientation]);
 
-    const currentConfig = layouts.screens[currentScreenId] || "";
-    const globalBackground = layouts.background;
+    const currentConfig = layouts.screens?.[currentScreenId];
+
+    const resolvedSettings: LayoutSettings = layouts?.settings ?? {};
 
     // Dynamically pad the main view if SafeArea is requested by the server JSON
     const safeAreaPadding = shouldSafeArea ? {
@@ -184,9 +195,23 @@ export default function Main() {
     } : {};
 
     return (
+        <LayoutContext.Provider value={{ layouts, settings: resolvedSettings }}>
+        <InputGuardProvider>
         <NetworkProvider
             onScreenChange={setCurrentScreenId}
             layouts={layouts}
+            onReconnected={() => {
+                // When auto-reconnect fires from background (onConnected never triggers),
+                // the server may not re-send SET_SCREEN. Navigate away from TransitionScreen
+                // using the last known screenId so the user isn't stuck on "Connecting...".
+                setCurrentScreenId(prev => {
+                    if (prev === SCREEN.TRANSITION) {
+                        console.log("Auto-reconnect: navigating away from TransitionScreen");
+                        return SCREEN.HOME;
+                    }
+                    return prev;
+                });
+            }}
             onConfigUrlReceived={(url) => {
                 if (url) {
                     setConfigUrl(prevUrl => {
@@ -220,13 +245,15 @@ export default function Main() {
                                 setConfigUrl(null);
                             }} />
                         ) : (
-                            <ScreenRenderer screenConfig={currentConfig} globalBackground={globalBackground} templates={layouts?.templates} />
+                            <ScreenRenderer screenConfig={currentConfig} />
                         )}
                         <DisconnectOverlay hidden={currentScreenId === SCREEN.TRANSITION} />
                     </>
                 )}
             </View>
         </NetworkProvider>
+        </InputGuardProvider>
+        </LayoutContext.Provider>
     );
 }
 

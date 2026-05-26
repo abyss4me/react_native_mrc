@@ -1,8 +1,12 @@
 // src/components/Template.tsx
 import React from 'react';
 import { ComponentMap } from './ComponentRegistry';
+import { useLayout } from '../engine/LayoutContext';
 
-export const Template = ({ config, templates, ...rest }: any) => {
+export const Template = ({ config, ...rest }: any) => {
+    const { layouts } = useLayout();
+    const templates = layouts?.templates;
+
     if (!templates || !templates[config.templateId]) {
         console.warn(`Template reference "${config.templateId}" not found.`);
         return null;
@@ -26,6 +30,7 @@ export const Template = ({ config, templates, ...rest }: any) => {
         return null;
     }
 
-    // Render the actual component, passing down all props, including the crucial 'templates' prop for nesting.
-    return <Component config={resolvedConfig} templates={templates} {...rest} />;
+    // Render the actual component, passing down all remaining props.
+    // Nested Template components will get 'templates' from LayoutContext directly.
+    return <Component config={resolvedConfig} {...rest} />;
 };

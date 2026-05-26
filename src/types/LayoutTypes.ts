@@ -27,7 +27,7 @@ export interface ButtonStates {
 // Button config
 export interface ButtonConfig extends BaseElementConfig {
     type: "button";
-    id: string;
+    id?: string;
     action?: string;
     content?: string;
     texture?: string;
@@ -42,6 +42,10 @@ export type ElementConfig = ButtonConfig | BaseElementConfig; // Add TextConfig,
 // Background can be a URL string, color string, or an object with a texture
 export type BackgroundConfig = string | { texture: string };
 
+
+// Named style presets — reusable style blocks referenced by key across elements
+export type StyleMap = Record<string, Record<string, any>>;
+
 // Templates map: key is the template name, value is any element config
 export type TemplateMap = Record<string, ElementConfig>;
 
@@ -50,3 +54,25 @@ export interface ScreenConfig {
     background?: BackgroundConfig;
     layout: ElementConfig[];
 }
+
+// Global settings block from layout.json
+export interface LayoutSettings {
+    orientation?: 'landscape' | 'portrait';
+    keepAwake?: boolean;
+    useSafeArea?: boolean;
+    assetsBaseUrl?: string;
+    defaultCooldown?: number; // ms — global button cooldown, overridable per button
+}
+
+// Root layout.json structure
+export interface LayoutConfig {
+    minClientVersion?: string;
+    settings?: LayoutSettings;
+    fonts?: Record<string, string>;
+    background?: BackgroundConfig;
+    colors?: ColorMap;
+    styles?: StyleMap;
+    templates?: TemplateMap;
+    screens?: Record<string, ScreenConfig>;
+}
+

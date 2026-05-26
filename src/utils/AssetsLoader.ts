@@ -96,6 +96,13 @@ export const preloadAssets = async (layouts: any) => {
     Object.values(layouts.screens).forEach((screen: any) => {
         screen.layout?.forEach(collectTextures);
     });
+
+    Object.values(layouts.screens).forEach((screen: any) => {
+        if (screen && screen?.background) {
+            collectTextures(screen.background);
+            //screen.background.forEach(collectTextures);
+        }
+    });
     
     if (layouts.background && layouts.background.texture) {
         const resolvedTexture = resolveTexture(layouts.background.texture, layouts?.settings?.assetsBaseUrl || '');
