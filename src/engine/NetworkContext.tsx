@@ -1,27 +1,47 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, useRef, ReactNode } from 'react';
 import ClientManager from '../services/ClientManager';
-import { GameState, MessageTypes } from '../types/ProtocolTypes';
-import { resolveStyleReference, applyPatches, resolveComponentAssets } from './LayoutUtils';
+import { GameState, MessageTypes, ServerMessage, LoadScreenMessage, PatchStateMessage, GameStateMessage, TriggerHapticsMessage, ShowErrorToastMessage } from '../types/ProtocolTypes';
+import { LayoutConfig, ElementConfig, ScreenConfig } from '../types/LayoutTypes';
 import { triggerHaptics, showError } from '../services/FeedbackService';
+import { resolveSetScreen, resolveUpdateComponents, ResolverContext } from './ComponentStateResolver';
+import { useAppLifecycle } from '../hooks/useAppLifecycle';
 
-interface NetworkContextType {
+// ─── Server Data Context ─────────────────────────────────────────────────────
+// Changes frequently (every server update). Components that only need
+// serverData subscribe here and won't re-render on connection state changes.
+
+interface ServerDataContextType {
     serverData: GameState;
+}
+
+const ServerDataContext = createContext<ServerDataContextType | null>(null);
+
+// ─── Connection Context ───────────────────────────────────────────────────────
+// Changes rarely (connect/disconnect events). Components that only need
+// connection actions won't re-render on every serverData update.
+
+interface ConnectionContextType {
     isDisconnected: boolean;
     connectionError: string | null;
-    sendMessage: (type: string, data?: any) => void;
+    sendMessage: (type: string, data?: unknown) => void;
     connect: (p_param: string) => void;
     reconnect: () => void;
     disconnect: () => void;
 }
 
-const NetworkContext = createContext<NetworkContextType | null>(null);
+const ConnectionContext = createContext<ConnectionContextType | null>(null);
 
 interface Props {
     children: ReactNode;
-    layouts?: any;
+    layouts?: LayoutConfig;
     onScreenChange: (screenId: string) => void;
     onConfigUrlReceived?: (url: string) => void;
     onReconnected?: () => void;
+}
+
+interface AppController {
+    dispatch: (msg: ServerMessage) => void;
+    onConnectionEstablished: () => void;
 }
 
 export const NetworkProvider: React.FC<Props> = ({ children, layouts, onScreenChange, onConfigUrlReceived, onReconnected }) => {
@@ -33,7 +53,32 @@ export const NetworkProvider: React.FC<Props> = ({ children, layouts, onScreenCh
     const onConfigUrlReceivedRef = useRef(onConfigUrlReceived);
     const onReconnectedRef = useRef(onReconnected);
     const managerRef = useRef<ClientManager | null>(null);
-    const appControllerRef = useRef<any>(null);
+    const appControllerRef = useRef<AppController | null>(null);
+
+    // layouts is static (loaded once at startup) — build the lookup map once,
+    // not on every PATCH_STATE message.
+    const layoutComponentsById = useMemo<Record<string, ElementConfig>>(() => {
+        if (!layouts?.screens) return {};
+        return Object.values(layouts.screens).reduce((acc: Record<string, ElementConfig>, screen) => {
+            const s = screen as ScreenConfig;
+            const allElements: ElementConfig[] = [
+                ...(s?.layout || []),
+                ...(s?.layouts?.landscape || []),
+                ...(s?.layouts?.portrait || []),
+            ];
+            allElements.forEach((comp: ElementConfig) => {
+                if (comp?.id) acc[comp.id] = comp;
+            });
+            return acc;
+        }, {});
+    }, [layouts]);
+
+    // Stable resolver context — rebuilt only when layouts changes (= never during gameplay).
+    const resolverCtx = useMemo<ResolverContext>(() => ({
+        layoutComponentsById,
+        layouts,
+        baseUrl: layouts?.settings?.assetsBaseUrl || '',
+    }), [layoutComponentsById, layouts]);
 
     useEffect(() => { onScreenChangeRef.current = onScreenChange; }, [onScreenChange]);
     useEffect(() => { onConfigUrlReceivedRef.current = onConfigUrlReceived; }, [onConfigUrlReceived]);
@@ -41,103 +86,23 @@ export const NetworkProvider: React.FC<Props> = ({ children, layouts, onScreenCh
 
     // ─── Message Handlers ───────────────────────────────────────────────────────
 
-    const handleSetScreen = (data: any) => {
-        const { screenId, ...restOfData } = data;
-        const clonedData = JSON.parse(JSON.stringify(restOfData));
-
-        // Apply patches
-        if (data.patches && Array.isArray(data.patches)) {
-            clonedData.components = clonedData.components || {};
-            applyPatches(clonedData.components, data.patches);
-        }
-
-        // Merge server component overrides with layout base styles
-        if (data.components) {
-            const layoutComponents = layouts?.screens?.[screenId]?.layout || {};
-            const layoutComponentsById = Object.values(layoutComponents).reduce((acc: any, comp: any) => {
-                if (comp?.id) acc[comp.id] = comp;
-                return acc;
-            }, {} as Record<string, any>);
-
-            for (const componentId in data.components) {
-                const incomingComponent = data.components[componentId];
-                if (incomingComponent?.style) {
-                    const layoutComponent = layoutComponentsById[componentId];
-                    const rawBaseStyle = layoutComponent?.style || {};
-                    const resolvedBase = layouts?.styles && typeof rawBaseStyle === 'string'
-                        ? resolveStyleReference(layouts.styles, { style: rawBaseStyle }).style
-                        : rawBaseStyle;
-                    clonedData.components[componentId] = clonedData.components[componentId] || {};
-                    clonedData.components[componentId].style = { ...resolvedBase, ...incomingComponent.style };
-                }
-            }
-        }
-
-        // Resolve asset URLs
-        if (clonedData.components) {
-            resolveComponentAssets(clonedData.components, layouts?.settings?.assetsBaseUrl || '');
-        }
-
-        setServerData(clonedData as GameState);
+    const handleLoadScreen = (data: LoadScreenMessage['data']) => {
+        const { screenId, state } = resolveSetScreen(data, resolverCtx);
+        setServerData(state);
         if (screenId) onScreenChangeRef.current?.(screenId);
     };
 
-    const handleUpdateComponents = (data: any) => {
-        setServerData(prev => {
-            const updatedComponents = JSON.parse(JSON.stringify(prev.components || {}));
-
-            // Apply patches
-            if (data.patches && Array.isArray(data.patches)) {
-                applyPatches(updatedComponents, data.patches);
-            }
-
-            // Merge server component overrides with layout base styles + prev state
-            if (data.components) {
-                const layoutComponentsById = Object.values(layouts?.screens || {}).reduce((acc: any, screen: any) => {
-                    Object.values(screen?.layout || {}).forEach((comp: any) => {
-                        if (comp?.id) acc[comp.id] = comp;
-                    });
-                    return acc;
-                }, {} as Record<string, any>);
-
-                for (const componentId in data.components) {
-                    const incomingComponent = data.components[componentId];
-                    const layoutComponent = layoutComponentsById[componentId] || {};
-                    const prevComponent = prev.components?.[componentId] || {};
-
-                    const rawBaseStyle = layoutComponent.style || {};
-                    const resolvedBaseStyle = layouts?.styles && typeof rawBaseStyle === 'string'
-                        ? resolveStyleReference(layouts.styles, { style: rawBaseStyle }).style
-                        : rawBaseStyle;
-
-                    updatedComponents[componentId] = {
-                        ...layoutComponent,
-                        ...prevComponent,
-                        ...(updatedComponents[componentId] || {}),
-                        ...incomingComponent,
-                        style: {
-                            ...resolvedBaseStyle,
-                            ...(prevComponent.style || {}),
-                            ...(incomingComponent.style || {})
-                        }
-                    };
-                }
-            }
-
-            // Resolve asset URLs
-            resolveComponentAssets(updatedComponents, layouts?.settings?.assetsBaseUrl || '');
-
-            return { ...prev, ...data, components: updatedComponents };
-        });
+    const handlePatchState = (data: PatchStateMessage['data']) => {
+        setServerData(prev => resolveUpdateComponents(data, prev, resolverCtx));
     };
 
-    const handleGameState = (msg: any) => {
-        const configUrl = msg?.state?.controllerConfigURL || '';
+    const handleGameState = (data: GameStateMessage['data']) => {
+        const configUrl = data?.state?.controllerConfigURL || '';
         if (configUrl) onConfigUrlReceivedRef.current?.(configUrl);
 
-        // Restore screen + state after reconnection (server won't re-send SET_SCREEN)
-        const stateData = msg?.state?.data || {};
-        const { screenId, ...restOfData } = stateData;
+        // Restore screen + state after reconnection (server won't re-send LOAD_SCREEN)
+        const stateData = data?.state?.data || {};
+        const { screenId, ...restOfData } = stateData as GameState & { screenId?: string };
         if (Object.keys(restOfData).length > 0) setServerData(restOfData as GameState);
         if (screenId) onScreenChangeRef.current?.(screenId);
 
@@ -151,23 +116,21 @@ export const NetworkProvider: React.FC<Props> = ({ children, layouts, onScreenCh
     // ClientManager holds a stable proxy that delegates to appControllerRef.current —
     // this decouples the long-lived ClientManager instance from React's render cycle.
     appControllerRef.current = {
-        dispatch: (msg: any) => {
-            const data = msg?.data || {};
+        dispatch: (msg: ServerMessage) => {
+            const data = (msg as { data?: unknown })?.data;
 
             switch (msg.type) {
-                case MessageTypes.SET_SCREEN:             handleSetScreen(data); break;
-                case MessageTypes.UPDATE_COMPONENTS:      handleUpdateComponents(data); break;
-                case MessageTypes.TRIGGER_HAPTICS:        triggerHaptics(data); break;
-                case MessageTypes.SHOW_ERROR:             showError(data); break;
-                case MessageTypes.GAME_STATE:             handleGameState(data); break;
-                // Single source of truth for overlay visibility
-                case MessageTypes.CONNECTION_STATUS:      setIsDisconnected(!data.isConnected); break;
-                case MessageTypes.CONNECTION_TIMEOUT:     setConnectionError(data.message || 'Unable to connect, please try again'); break;
+                case MessageTypes.LOAD_SCREEN:            handleLoadScreen(data as LoadScreenMessage['data']); break;
+                case MessageTypes.PATCH_STATE:            handlePatchState(data as PatchStateMessage['data']); break;
+                case MessageTypes.TRIGGER_HAPTICS:        triggerHaptics(data as TriggerHapticsMessage['data']); break;
+                case MessageTypes.SHOW_ERROR:             showError(data as ShowErrorToastMessage['data']); break;
+                case MessageTypes.GAME_STATE:             handleGameState(data as GameStateMessage['data']); break;
+                case MessageTypes.CONNECTION_STATUS:      setIsDisconnected(!(data as { isConnected?: boolean })?.isConnected); break;
+                case MessageTypes.CONNECTION_TIMEOUT:     setConnectionError((data as { message?: string })?.message || 'Unable to connect, please try again'); break;
                 case MessageTypes.CLEAR_CONNECTION_ERROR: setConnectionError(null); break;
             }
         },
         onConnectionEstablished: () => {
-            // Side-effects only — isDisconnected is driven by CONNECTION_STATUS dispatch above
             setConnectionError(null);
             onReconnectedRef.current?.();
         },
@@ -175,8 +138,8 @@ export const NetworkProvider: React.FC<Props> = ({ children, layouts, onScreenCh
 
     if (!managerRef.current) {
         managerRef.current = new ClientManager({
-            dispatch:                (msg: any) => appControllerRef.current.dispatch(msg),
-            onConnectionEstablished: ()         => appControllerRef.current.onConnectionEstablished(),
+            dispatch:                (msg: ServerMessage) => appControllerRef.current?.dispatch(msg),
+            onConnectionEstablished: ()                   => appControllerRef.current?.onConnectionEstablished(),
         });
     }
 
@@ -187,9 +150,12 @@ export const NetworkProvider: React.FC<Props> = ({ children, layouts, onScreenCh
         };
     }, []);
 
-    // ─── Stable sendMessage ──────────────────────────────────────────────────────
+    // Notify the game when the app moves to background or returns to foreground
+    useAppLifecycle(managerRef);
 
-    const sendMessage = useCallback((type: string, data?: any) => {
+    // ─── Stable actions ──────────────────────────────────────────────────────────
+
+    const sendMessage = useCallback((type: string, data?: unknown) => {
         managerRef.current?.sendMessage(type, data);
     }, []);
 
@@ -205,23 +171,46 @@ export const NetworkProvider: React.FC<Props> = ({ children, layouts, onScreenCh
         managerRef.current?.disconnect();
     }, []);
 
-    const value = useMemo(() => ({
+    // ─── Context values ───────────────────────────────────────────────────────────
+    // Separated so that serverData changes don't trigger ConnectionContext consumers
+    // and connection state changes don't trigger ServerDataContext consumers.
+
+    const serverDataValue = useMemo<ServerDataContextType>(() => ({
         serverData,
-        sendMessage,
+    }), [serverData]);
+
+    const connectionValue = useMemo<ConnectionContextType>(() => ({
         isDisconnected,
         connectionError,
+        sendMessage,
         connect,
         reconnect,
         disconnect,
-    }), [serverData, sendMessage, isDisconnected, connectionError, connect, reconnect, disconnect]);
+    }), [isDisconnected, connectionError, sendMessage, connect, reconnect, disconnect]);
 
-    return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>;
+    return (
+        <ConnectionContext.Provider value={connectionValue}>
+            <ServerDataContext.Provider value={serverDataValue}>
+                {children}
+            </ServerDataContext.Provider>
+        </ConnectionContext.Provider>
+    );
 };
 
-export const useNetwork = () => {
-    const context = useContext(NetworkContext);
-    if (!context) {
-        throw new Error('useNetwork must be used within a NetworkProvider');
-    }
+// ─── Hooks ────────────────────────────────────────────────────────────────────
+
+/** Subscribe to server data only. Re-renders on every server update. */
+export const useServerData = (): ServerDataContextType => {
+    const context = useContext(ServerDataContext);
+    if (!context) throw new Error('useServerData must be used within a NetworkProvider');
     return context;
 };
+
+/** Subscribe to connection state/actions only. Does NOT re-render on server data updates. */
+export const useConnection = (): ConnectionContextType => {
+    const context = useContext(ConnectionContext);
+    if (!context) throw new Error('useConnection must be used within a NetworkProvider');
+    return context;
+};
+
+

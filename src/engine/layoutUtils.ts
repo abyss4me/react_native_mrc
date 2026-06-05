@@ -1,14 +1,38 @@
-// src/engine/LayoutUtils.ts
-import { ViewStyle, Dimensions } from 'react-native';
-import {StyleMap} from "../types/LayoutTypes";
+import { ViewStyle } from 'react-native';
+import { StyleMap } from "../types/LayoutTypes";
+import { GameState } from '../types/ProtocolTypes';
+import { BASE_DESIGN_WIDTH, BASE_DESIGN_HEIGHT } from '../constants';
 
 interface LayoutConfig {
     position?: [number, number];
     size?: [number, number];
     anchor?: [number, number];
-    style?: Record<string, any>;
-    [key: string]: any;
+    style?: object;
 }
+
+/**
+ * Returns a rotation transform array when `rotation` is defined, otherwise an empty array.
+ * Use spread into a transform array: `[...rotationTransform(config.rotation), { scale: 1 }]`
+ */
+export const rotationTransform = (
+    rotation: number | undefined
+): { rotate: string }[] =>
+    rotation !== undefined ? [{ rotate: `${rotation}deg` }] : [];
+
+/**
+ * Conditionally computes anchor-based absolute positioning.
+ * Returns an empty object when the config has neither `position` nor `anchor`,
+ * allowing the component to participate in its parent's flex layout instead.
+ */
+export const resolveAnchorStyle = (
+    config: LayoutConfig,
+    globalScale: number = 1,
+    parentWidth?: number,
+    parentHeight?: number,
+): ViewStyle => {
+    if (!config.position && !config.anchor) return {};
+    return getAnchorStyle(config, globalScale, parentWidth, parentHeight);
+};
 
 export const getAnchorStyle = (
     config: LayoutConfig,
@@ -17,17 +41,17 @@ export const getAnchorStyle = (
     parentHeight?: number
 ): ViewStyle => {
 
-    const { anchor = [0, 0], style: customStyle } = config;
+    const { anchor = [0, 0], style: _rawStyle } = config;
+    const customStyle = _rawStyle as { width?: number | string; height?: number | string; fontSize?: number | string } | undefined;
 
     const [width, height] = config.size || [ 0, 0 ];
     const [x, y] = config.position || [ 0, 0 ];
 
-    const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-
-    // Fallback to screenDims if no specific parent dims provided
-    // BUT we must use the active prop if defined, so React Native properly reflows component upon resize.
-    const containerWidth = parentWidth !== undefined ? parentWidth : screenWidth;
-    const containerHeight = parentHeight !== undefined ? parentHeight : screenHeight;
+    // Fallback to design-space dims if no specific parent dims provided.
+    // parentWidth/parentHeight must come from useWindowDimensions() (via useUIScale) so
+    // that the component re-renders reactively on Android window-mode resize events.
+    const containerWidth = parentWidth !== undefined ? parentWidth : BASE_DESIGN_WIDTH;
+    const containerHeight = parentHeight !== undefined ? parentHeight : BASE_DESIGN_HEIGHT;
 
     const rawW = width || (customStyle?.width ? parseInt(String(customStyle.width)) : 0);
     const rawH = height || (customStyle?.height ? parseInt(String(customStyle.height)) : (customStyle?.fontSize ? parseInt(String(customStyle.fontSize)) : 0));
@@ -76,11 +100,11 @@ export const getAnchorStyle = (
  * Prepends assetsBaseUrl to any relative texture/src URLs found on an element config.
  * Only modifies URLs that don't already start with http/https.
  */
-const resolveAssetUrls = (baseUrl: string, elementConfig: Record<string, any>): Record<string, any> => {
+const resolveAssetUrls = (baseUrl: string, elementConfig: Record<string, unknown>): Record<string, unknown> => {
     if (!baseUrl) return elementConfig;
 
     const resolved = { ...elementConfig };
-    const urlFields = ['texture', 'src'];
+    const urlFields = ['texture', 'src', 'indicatorTexture'];
 
     urlFields.forEach(field => {
         const val = resolved[field];
@@ -91,8 +115,8 @@ const resolveAssetUrls = (baseUrl: string, elementConfig: Record<string, any>): 
 
     // Also resolve inside states (button state textures)
     if (resolved.states && typeof resolved.states === 'object') {
-        const resolvedStates: Record<string, any> = {};
-        for (const [stateName, stateConfig] of Object.entries(resolved.states as Record<string, any>)) {
+        const resolvedStates: Record<string, unknown> = {};
+        for (const [stateName, stateConfig] of Object.entries(resolved.states as Record<string, Record<string, unknown>>)) {
             if (stateConfig?.texture && typeof stateConfig.texture === 'string'
                 && !stateConfig.texture.startsWith('http://') && !stateConfig.texture.startsWith('https://')) {
                 resolvedStates[stateName] = { ...stateConfig, texture: `${baseUrl}${stateConfig.texture}` };
@@ -113,8 +137,8 @@ const resolveAssetUrls = (baseUrl: string, elementConfig: Record<string, any>): 
  */
 export const resolveStyleReference = (
     styles: StyleMap,
-    elementConfig: Record<string, any>
-): Record<string, any> => {
+    elementConfig: Record<string, unknown>
+): ResolvedConfig => {
     const { style } = elementConfig;
 
     // Only act if style is a @styles.X string reference
@@ -138,17 +162,16 @@ export const resolveStyleReference = (
  */
 export const resolveElementConfig = (
     styles: StyleMap,
-    elementConfig: Record<string, any>,
+    elementConfig: Record<string, unknown>,
     baseUrl: string = ''
-): Record<string, any> => {
-    let resolved = resolveStyleReference(styles, elementConfig);
-    resolved = resolveAssetUrls(baseUrl, resolved);
+): ResolvedConfig => {
+    let resolved: ResolvedConfig = resolveStyleReference(styles, elementConfig);
+    resolved = resolveAssetUrls(baseUrl, resolved) as ResolvedConfig;
 
-    // Recursively resolve children (e.g. container layout or button layout)
     if (Array.isArray(resolved.layout)) {
         resolved = {
             ...resolved,
-            layout: resolved.layout.map((child: Record<string, any>) =>
+            layout: (resolved.layout as Record<string, unknown>[]).map(child =>
                 resolveElementConfig(styles, child, baseUrl)
             ),
         };
@@ -158,23 +181,29 @@ export const resolveElementConfig = (
 };
 
 /**
- * Applies a server patch array onto a components map (mutates a clone — call with a cloned object).
+ * Applies a server patch array onto a state map (mutates a clone — call with a cloned object).
  * Patches shallow-merge object-type props so existing style fields aren't wiped.
  */
+interface Patch {
+    target?: { ids?: string[] };
+    props?: Record<string, unknown>;
+}
+
 export const applyPatches = (
-    components: Record<string, any>,
-    patches: any[]
-): Record<string, any> => {
-    patches.forEach((patch: any) => {
+    components: Record<string, Record<string, unknown>>,
+    patches: Patch[]
+): Record<string, Record<string, unknown>> => {
+    patches.forEach((patch) => {
         const { target, props } = patch;
         if (target?.ids && Array.isArray(target.ids) && props) {
             target.ids.forEach((id: string) => {
                 components[id] = components[id] || {};
                 Object.keys(props).forEach(key => {
-                    if (typeof props[key] === 'object' && props[key] !== null && !Array.isArray(props[key])) {
-                        components[id][key] = { ...(components[id][key] || {}), ...props[key] };
+                    const val = props[key];
+                    if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+                        components[id][key] = { ...(components[id][key] as object || {}), ...(val as object) };
                     } else {
-                        components[id][key] = props[key];
+                        components[id][key] = val;
                     }
                 });
             });
@@ -188,7 +217,7 @@ export const applyPatches = (
  * Mutates in place — call after cloning.
  */
 export const resolveComponentAssets = (
-    components: Record<string, any>,
+    components: Record<string, Record<string, unknown>>,
     baseUrl: string
 ): void => {
     if (!baseUrl) return;
@@ -207,11 +236,23 @@ export const resolveComponentAssets = (
  * Recursively merges server state data into an element config tree.
  * Server data can override any field; styles are deep-merged (template base + server override).
  */
-export const recursiveProcessConfig = (rawConfig: any, serverData: any): any => {
-    const finalConfig = { ...rawConfig };
+/**
+ * Loosely typed resolved config — fields come from JSON and may contain
+ * any combination of known and unknown keys.
+ */
+export type ResolvedConfig = {
+    style?: Record<string, unknown>;
+    states?: Record<string, Record<string, unknown>>;
+    layout?: ResolvedConfig[];
+    [key: string]: unknown;
+};
 
-    if (finalConfig.id && serverData.components && serverData.components[finalConfig.id]) {
-        const updates = serverData.components[finalConfig.id];
+export const recursiveProcessConfig = (rawConfig: ResolvedConfig, serverData: GameState): ResolvedConfig => {
+    const finalConfig: ResolvedConfig = { ...rawConfig };
+
+    const id = finalConfig.id as string | undefined;
+    if (id && serverData.state?.[id]) {
+        const updates = serverData.state[id];
         const baseStyle = finalConfig.style;
         Object.assign(finalConfig, updates);
         if (baseStyle) {
@@ -219,8 +260,8 @@ export const recursiveProcessConfig = (rawConfig: any, serverData: any): any => 
         }
     }
 
-    if (finalConfig.layout && Array.isArray(finalConfig.layout)) {
-        finalConfig.layout = finalConfig.layout.map((child: any) =>
+    if (Array.isArray(finalConfig.layout)) {
+        finalConfig.layout = finalConfig.layout.map(child =>
             recursiveProcessConfig(child, serverData)
         );
     }

@@ -1,4 +1,4 @@
-// src/engine/resolveBackground.ts
+import { BackgroundConfig } from '../types/LayoutTypes';
 
 interface BgResult {
     bgSource: { uri: string } | null;
@@ -11,7 +11,7 @@ const isAbsoluteUrl = (url: string): boolean =>
 const resolveBgTexture = (texture: string, baseUrl: string): string =>
     isAbsoluteUrl(texture) ? texture : `${baseUrl}${texture}`;
 
-const resolveBg = (bg: any, baseUrl: string): BgResult => {
+const resolveBg = (bg: BackgroundConfig, baseUrl: string): BgResult => {
     if (typeof bg === 'string') {
         if (isAbsoluteUrl(bg)) return { bgSource: { uri: bg }, bgColor: '#000' };
         return { bgSource: null, bgColor: bg };
@@ -27,8 +27,8 @@ const resolveBg = (bg: any, baseUrl: string): BgResult => {
  * Screen-specific → Global → Fallback (black).
  */
 const resolveBackground = (
-    screenBg: any,
-    globalBg: any,
+    screenBg: BackgroundConfig | undefined,
+    globalBg: BackgroundConfig | undefined,
     baseUrl: string
 ): BgResult => {
     if (screenBg) return resolveBg(screenBg, baseUrl);

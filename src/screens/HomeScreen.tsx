@@ -9,7 +9,6 @@ import {
 import { ENGINE_VERSION } from '../constants';
 
 interface HomeScreenProps {
-    // No props needed for this simplified view
     isConfigLoadingError: boolean
 }
 
@@ -29,7 +28,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ isConfigLoadingError }) 
                 </View>
             </View>
 
-            {/* app version footer */}
             <Text style={styles.versionText}>v{ENGINE_VERSION}</Text>
         </KeyboardAvoidingView>
     );
@@ -38,13 +36,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ isConfigLoadingError }) 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0A0A0A', // Very dark background
+        backgroundColor: '#0A0A0A',
     },
     content: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: '15%', // To prevent it from being too stretched out on landscape
+        paddingHorizontal: '15%', // Constrain width on landscape
     },
     header: {
         alignItems: 'center',

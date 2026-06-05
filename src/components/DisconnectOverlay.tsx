@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { useNetwork } from '../engine/NetworkContext';
+import { useConnection } from '../engine/NetworkContext';
 
 const DisconnectOverlay: React.FC<{ hidden?: boolean }> = ({ hidden }) => {
-    const { isDisconnected, reconnect } = useNetwork();
+    const { isDisconnected, reconnect } = useConnection();
 
     if (!isDisconnected || hidden) {
         return null;

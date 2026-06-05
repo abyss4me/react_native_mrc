@@ -1,0 +1,961 @@
+{
+  "minClientVersion": "1.0.0",
+  "settings": {
+    "orientation": "auto",
+    "keepAwake": true,
+    "useSafeArea": false,
+    "defaultCooldown": 50,
+    "lockSafetyTimeout": 7000,
+    "assetsBaseUrl": "https://h5.play.works/dev/pavlou/mrc_engine/assets/images/"
+  },
+  "theme": {
+    "fonts": {
+      "LibreFranklinBold": "https://h5.play.works/dev/pavlou/mrc_engine/assets/fonts/libre_franklin_bold.ttf"
+    },
+    "background": {
+      "texture": "background.jpg"
+    },
+    "styles": {
+      "controlButtonLabel": {
+        "color": "white",
+        "fontSize": 40,
+        "fontWeight": "bold",
+        "textShadowColor": "#000000",
+        "textShadowOffset": {
+          "width": 2,
+          "height": 2
+        },
+        "textShadowRadius": 4
+      },
+      "testStyle": {
+        "width": 640,
+        "textAlign": "center",
+        "color": "white",
+        "fontSize": 30,
+        "fontFamily": "LibreFranklinBold",
+        "fontWeight": "bold",
+        "textShadowColor": "rgba(0, 0, 0, 0.6)",
+        "textShadowOffset": {
+          "width": 0,
+          "height": 3
+        },
+        "textShadowRadius": 4
+      }
+    }
+  },
+  "templates": {
+    "AVATAR_GROUP": {
+      "type": "container",
+      "size": [60, 60],
+      "layout": [
+        {
+          "type": "image",
+          "id": "player_bg",
+          "anchor": [0.5, 0.5],
+          "texture": "player1.png",
+          "position": [0, 0],
+          "size": [60, 60]
+        },
+        {
+          "type": "image",
+          "id": "avatar",
+          "anchor": [0.5, 0.5],
+          "texture": "",
+          "position": [0, -20],
+          "size": [50, 50]
+        },
+        {
+          "type": "text",
+          "id": "name",
+          "text": "PLAYER NAME",
+          "anchor": [0.5, 0.5],
+          "position": [0, 10],
+          "style": {
+            "textAlign": "center",
+            "color": "white",
+            "fontWeight": "bold",
+            "fontSize": 8,
+            "width": 844
+          }
+        },
+        {
+          "type": "text",
+          "id": "money",
+          "text": "",
+          "anchor": [0.5, 0.5],
+          "position": [0, 20],
+          "style": {
+            "textAlign": "center",
+            "color": "white",
+            "fontWeight": "bold",
+            "fontSize": 8,
+            "width": 844
+          }
+        }
+      ]
+    },
+    "AVATAR_GROUP_PORTRAIT": {
+      "type": "container",
+      "size": [60, 60],
+      "anchor": [0, 0],
+      "position": [100, 120],
+      "layout": [
+        {
+          "type": "image",
+          "id": "player_bg",
+          "anchor": [0.5, 0.5],
+          "texture": "player1.png",
+          "position": [0, 0],
+          "size": [160, 160]
+        },
+        {
+          "type": "image",
+          "id": "avatar",
+          "anchor": [0.5, 0.5],
+          "texture": "",
+          "position": [0, -20],
+          "size": [150, 150]
+        },
+        {
+          "type": "text",
+          "id": "name",
+          "text": "PLAYER NAME",
+          "anchor": [0.5, 0.5],
+          "position": [0, 10],
+          "style": {
+            "textAlign": "center",
+            "color": "white",
+            "fontWeight": "bold",
+            "fontSize": 18,
+            "width": 844
+          }
+        },
+        {
+          "type": "text",
+          "id": "money",
+          "text": "",
+          "anchor": [0.5, 0.5],
+          "position": [0, 20],
+          "style": {
+            "textAlign": "center",
+            "color": "white",
+            "fontWeight": "bold",
+            "fontSize": 18,
+            "width": 844
+          }
+        }
+      ]
+    },
+    "BACK_BUTTON": {
+      "type": "button",
+      "keyCode": "Backspace",
+      "anchor": [1, 0],
+      "texture": "back_btn.png",
+      "states": {
+        "pressed": {
+          "texture": "back_btn_focused.png"
+        }
+      },
+      "position": [20, 20],
+      "size": [80, 40],
+      "style": {
+        "fontSize": 40,
+        "color": "white"
+      }
+    }
+  },
+  "initialScreen": "CONTROL_SCREEN",
+  "screens": {
+    "WAIT_SCREEN": {
+      "layouts": {
+        "landscape": [
+          {
+            "type": "image",
+            "id": "main_logo",
+            "anchor": [0.5, 0.5],
+            "texture": "logo.png",
+            "position": [0, -20],
+            "size": [200, 250]
+          },
+          {
+            "type": "text",
+            "id": "tap_to_connect",
+            "text": "PLEASE WAIT...",
+            "anchor": [0.5, 0.5],
+            "position": [0, 100],
+            "style": {
+              "textAlign": "center",
+              "color": "white",
+              "fontSize": 30,
+              "width": 400,
+              "fontFamily": "LibreFranklinBold",
+              "fontWeight": "500",
+              "fontStyle": "italic"
+            }
+          }
+        ]
+      }
+    },
+    "CONTROL_SCREEN": {
+      "layouts": {
+        "landscape": [
+          {
+            "type": "template",
+            "id": "back_btn",
+            "templateId": "BACK_BUTTON",
+            "cooldown": 500
+          },
+          {
+            "type": "dpad",
+            "id": "dpad_group",
+            "anchor": [0, 0.5],
+            "position": [100, 0],
+            "buttonSize": [80, 80],
+            "radius": 80,
+            "haptic": "light",
+            "hitbox": 30,
+            "autoRepeat": true,
+            "repeatInterval": 250,
+            "texture": "control_btn.png",
+            "states": {
+              "pressed": { "texture": "control_btn_focused.png" }
+            }
+          },
+          {
+            "type": "button",
+            "id": "Enter",
+            "keyCode": "Enter",
+            "anchor": [1, 1],
+            "texture": "ok_btn.png",
+            "lockScreen": true,
+            "states": {
+              "pressed": {
+                "texture": "ok_btn_focused.png"
+              }
+            },
+            "position": [100, 80],
+            "size": [100, 100],
+            "text": "OK",
+            "style": "@styles.controlButtonLabel"
+          },
+          {
+            "type": "image",
+            "id": "main_logo",
+            "anchor": [0.5, 0],
+            "texture": "logo.png",
+            "position": [0, 20],
+            "size": [300, 150]
+          }
+        ],
+        "portrait": [
+          {
+            "type": "dpad",
+            "id": "dpad_group",
+            "anchor": [0, 0.5],
+            "position": [100, 0],
+            "buttonSize": [80, 80],
+            "radius": 80,
+            "haptic": "light",
+            "hitbox": 30,
+            "autoRepeat": true,
+            "repeatInterval": 250,
+            "texture": "control_btn.png",
+            "states": {
+              "pressed": { "texture": "control_btn_focused.png" }
+            }
+          },
+          {
+            "type": "template",
+            "id": "back_btn",
+            "templateId": "BACK_BUTTON",
+            "cooldown": 500,
+            "anchor": [1, 0],
+            "position": [0, 150],
+            "size": [160, 100]
+          },
+          {
+            "type": "button",
+            "id": "Enter",
+            "keyCode": "Enter",
+            "anchor": [0.5, 0.5],
+            "texture": "ok_btn.png",
+            "lockScreen": true,
+            "states": {
+              "pressed": {
+                "texture": "ok_btn_focused.png"
+              }
+            },
+            "position": [0, 400],
+            "size": [140, 140],
+            "text": "OK",
+            "style": "@styles.controlButtonLabel"
+          },
+          {
+            "type": "image",
+            "id": "main_logo",
+            "anchor": [0.5, 0],
+            "texture": "logo.png",
+            "position": [0, 60],
+            "size": [400, 300]
+          }
+        ]
+      }
+    },
+    "ACTION_SCREEN": {
+      "layouts": {
+        "landscape": [
+          {
+            "type": "template",
+            "id": "avatar_group",
+            "templateId": "AVATAR_GROUP",
+            "anchor": [0, 0],
+            "position": [25, 30],
+            "size": [60, 60]
+          },
+          {
+            "type": "button",
+            "id": "btnHint",
+            "action": "btnHint",
+            "anchor": [0.5, 0.5],
+            "lockScreen": true,
+            "states": {
+              "normal": {
+                "texture": "hint_btn.png"
+              },
+              "pressed": {
+                "texture": "hint_btn_focused.png",
+                "scale": 1
+              },
+              "disabled": {
+                "texture": "hint_btn_disabled.png",
+                "style": {
+                  "opacity": 0.6
+                }
+              }
+            },
+            "position": [-300, 0],
+            "size": [150, 150],
+            "text": ""
+          },
+          {
+            "type": "button",
+            "id": "btnVowel",
+            "action": "btnVowel",
+            "anchor": [0.5, 0.5],
+            "actionPayload": {},
+            "lockScreen": true,
+            "states": {
+              "normal": {
+                "texture": "vowel_btn.png"
+              },
+              "pressed": {
+                "texture": "vowel_btn_focused.png",
+                "scale": 1
+              },
+              "disabled": {
+                "texture": "vowel_btn_disabled.png",
+                "style": {
+                  "opacity": 0.6
+                }
+              }
+            },
+            "position": [-150, 0],
+            "size": [150, 150],
+            "text": ""
+          },
+          {
+            "type": "button",
+            "id": "btnWheel",
+            "action": "btnWheel",
+            "lockScreen": true,
+            "anchor": [0.5, 0.5],
+            "states": {
+              "normal": {
+                "texture": "spin_btn.png"
+              },
+              "pressed": {
+                "texture": "spin_btn_focused.png",
+                "scale": 1
+              },
+              "disabled": {
+                "texture": "spin_btn_disabled.png",
+                "style": {
+                  "opacity": 0.6
+                }
+              }
+            },
+            "position": [50, 0],
+            "size": [150, 150]
+          },
+          {
+            "type": "button",
+            "id": "btnSolve",
+            "action": "btnSolve",
+            "lockScreen": true,
+            "anchor": [0.5, 0.5],
+            "states": {
+              "normal": {
+                "texture": "solve_btn.png"
+              },
+              "pressed": {
+                "texture": "solve_btn_focused.png",
+                "scale": 1
+              }
+            },
+            "position": [250, 0],
+            "size": [150, 150]
+          },
+          {
+            "type": "template",
+            "id": "back_btn",
+            "templateId": "BACK_BUTTON"
+          },
+          {
+            "type": "text",
+            "id": "test",
+            "anchor": [0.5, 0],
+            "text": "",
+            "position": [0, 80],
+            "style": "@styles.testStyle"
+          }
+        ],
+        "portrait": [
+          {
+            "type": "template",
+            "id": "avatar_group",
+            "templateId": "AVATAR_GROUP_PORTRAIT"
+          },
+          {
+            "type": "button",
+            "id": "btnHint",
+            "action": "btnHint",
+            "anchor": [0.5, 0.5],
+            "lockScreen": true,
+            "states": {
+              "normal": {
+                "texture": "hint_btn.png"
+              },
+              "pressed": {
+                "texture": "hint_btn_focused.png",
+                "scale": 1
+              },
+              "disabled": {
+                "texture": "hint_btn_disabled.png",
+                "style": {
+                  "opacity": 0.6
+                }
+              }
+            },
+            "position": [0, -200],
+            "size": [200, 200],
+            "text": ""
+          },
+          {
+            "type": "button",
+            "id": "btnVowel",
+            "action": "btnVowel",
+            "anchor": [0.5, 0.5],
+            "actionPayload": {},
+            "lockScreen": true,
+            "states": {
+              "normal": {
+                "texture": "vowel_btn.png"
+              },
+              "pressed": {
+                "texture": "vowel_btn_focused.png",
+                "scale": 1
+              },
+              "disabled": {
+                "texture": "vowel_btn_disabled.png",
+                "style": {
+                  "opacity": 0.6
+                }
+              }
+            },
+            "position": [0, 0],
+            "size": [200, 200],
+            "text": ""
+          },
+          {
+            "type": "button",
+            "id": "btnWheel",
+            "action": "btnWheel",
+            "lockScreen": true,
+            "anchor": [0.5, 0.5],
+            "states": {
+              "normal": {
+                "texture": "spin_btn.png"
+              },
+              "pressed": {
+                "texture": "spin_btn_focused.png",
+                "scale": 1
+              },
+              "disabled": {
+                "texture": "spin_btn_disabled.png",
+                "style": {
+                  "opacity": 0.6
+                }
+              }
+            },
+            "position": [0, 200],
+            "size": [200, 200]
+          },
+          {
+            "type": "button",
+            "id": "btnSolve",
+            "action": "btnSolve",
+            "lockScreen": true,
+            "anchor": [0.5, 0.5],
+            "states": {
+              "normal": {
+                "texture": "solve_btn.png"
+              },
+              "pressed": {
+                "texture": "solve_btn_focused.png",
+                "scale": 1
+              }
+            },
+            "position": [0, 400],
+            "size": [200, 200]
+          },
+          {
+            "type": "template",
+            "id": "back_btn",
+            "templateId": "BACK_BUTTON"
+          },
+          {
+            "type": "text",
+            "id": "test",
+            "anchor": [0.5, 0],
+            "text": "",
+            "position": [0, 80],
+            "style": "@styles.testStyle"
+          }
+         ]
+      }
+    },
+    "WHEEL_SCREEN": {
+      "layouts": {
+        "landscape": [
+          {
+            "type": "template",
+            "id": "avatar_group",
+            "templateId": "AVATAR_GROUP",
+            "anchor": [0, 0],
+            "position": [25, 30],
+            "size": [60, 60]
+          },
+          {
+            "type": "button",
+            "id": "btnSpin",
+            "action": "btnSpin",
+            "anchor": [0.5, 0.5],
+            "lockScreen": true,
+            "text": "SPIN",
+            "states": {
+              "normal": {
+                "texture": "spin_wheel_btn.png"
+              },
+              "pressed": {
+                "texture": "spin_wheel_btn.png"
+              }
+            },
+            "position": [0, 0],
+            "size": [160, 100],
+            "style": {
+              "fontSize": 40,
+              "color": "white"
+            }
+          },
+          {
+            "type": "button",
+            "id": "back_btn",
+            "templateId": "BACK_BUTTON",
+            "position": [20, 20]
+          }
+        ]
+      }
+    },
+    "KEYBOARD_SCREEN": {
+      "layouts": {
+        "landscape": [
+          {
+            "type": "template",
+            "id": "avatar_group",
+            "templateId": "AVATAR_GROUP",
+            "anchor": [0, 0],
+            "position": [25, 30],
+            "size": [60, 60]
+          },
+          {
+            "type": "text",
+            "text": "GUESS THE LETTER",
+            "anchor": [0.5, 0],
+            "position": [0, 20],
+            "style": {
+              "textAlign": "center",
+              "color": "white",
+              "fontSize": 30,
+              "width": 844
+            }
+          },
+          {
+            "type": "button",
+            "id": "btnHint",
+            "action": "btnHint",
+            "anchor": [0.5, 0],
+            "states": {
+              "normal": {
+                "texture": "hint_btn_keyboard.png"
+              },
+              "pressed": {
+                "texture": "hint_btn_keyboard_focused.png",
+                "scale": 1
+              }
+            },
+            "position": [0, 60],
+            "size": [100, 50]
+          },
+          {
+            "type": "keyboard",
+            "anchor": [0.5, 0.5],
+            "position": [0, 30],
+            "gapX": 10,
+            "gapY": 10,
+            "rows": [
+              ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+              ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+              [
+                {
+                  "id": "Pass",
+                  "action": "Pass",
+                  "text": "Pass",
+                  "size": [100, 70],
+                  "states": {
+                    "normal": {
+                      "texture": "keyboard_alt.png",
+                      "style": {
+                        "fontWeight": "bold"
+                      }
+                    },
+                    "pressed": {
+                      "texture": "keyboard_alt_focused.png",
+                      "scale": 0.95,
+                      "style": {
+                        "fontWeight": "bold"
+                      }
+                    },
+                    "disabled": {
+                      "texture": "keyboard_alt_disabled.png",
+                      "style": {
+                        "opacity": 0.6,
+                        "fontWeight": "bold"
+                      }
+                    }
+                  }
+                },
+                "Z",
+                "X",
+                "C",
+                "V",
+                "B",
+                "N",
+                "M",
+                {
+                  "id": "Clear",
+                  "action": "Clear",
+                  "text": "Clear",
+                  "size": [100, 70],
+                  "states": {
+                    "normal": {
+                      "texture": "keyboard_alt.png",
+                      "style": {
+                        "fontWeight": "bold"
+                      }
+                    },
+                    "pressed": {
+                      "texture": "keyboard_alt_focused.png",
+                      "scale": 0.95,
+                      "style": {
+                        "fontWeight": "bold"
+                      }
+                    },
+                    "disabled": {
+                      "texture": "keyboard_alt_disabled.png",
+                      "style": {
+                        "opacity": 0.6,
+                        "fontWeight": "bold"
+                      }
+                    }
+                  }
+                }
+              ]
+            ],
+            "states": {
+              "normal": {
+                "texture": "keyboard_letter_btn.png",
+                "style": {
+                  "fontWeight": "bold"
+                }
+              },
+              "pressed": {
+                "texture": "keyboard_letter_btn_focused.png",
+                "scale": 0.95,
+                "style": {
+                  "fontWeight": "bold"
+                }
+              },
+              "disabled": {
+                "texture": "keyboard_letter_btn_disabled.png",
+                "style": {
+                  "opacity": 1,
+                  "fontWeight": "bold"
+                }
+              }
+            },
+            "size": [1000, 200],
+            "keySize": [60, 70]
+          },
+          {
+            "type": "template",
+            "id": "back_btn",
+            "templateId": "BACK_BUTTON"
+          }
+        ]
+      }
+    },
+    "VOWEL_SCREEN": {
+      "layouts": {
+        "landscape": [
+          {
+            "type": "template",
+            "id": "avatar_group",
+            "templateId": "AVATAR_GROUP",
+            "anchor": [0, 0],
+            "position": [25, 30],
+            "size": [60, 60]
+          },
+          {
+            "type": "template",
+            "id": "back_btn",
+            "templateId": "BACK_BUTTON"
+          },
+          {
+            "type": "text",
+            "id": "vowel_description",
+            "anchor": [0.5, 0],
+            "text": "Buy a vowel",
+            "position": [0, 80],
+            "style": {
+              "width": 1980,
+              "textAlign": "center",
+              "color": "white",
+              "fontSize": 30,
+              "fontFamily": "LibreFranklinBold",
+              "fontWeight": "bold",
+              "textShadowColor": "rgba(0, 0, 0, 0.6)",
+              "textShadowOffset": {
+                "width": 0,
+                "height": 3
+              },
+              "textShadowRadius": 4
+            }
+          },
+          {
+            "type": "text",
+            "id": "money_val",
+            "anchor": [0.5, 0.5],
+            "text": "500$",
+            "position": [0, 65],
+            "style": {
+              "width": 600,
+              "height": 80,
+              "color": "white",
+              "fontSize": 40,
+              "fontWeight": "bold",
+              "textAlign": "center"
+            }
+          },
+          {
+            "type": "keyboard",
+            "anchor": [0.5, 0.5],
+            "position": [0, 0],
+            "gapX": 10,
+            "states": {
+              "normal": {
+                "texture": "keyboard_vowel.png",
+                "style": {
+                  "fontWeight": "bold"
+                }
+              },
+              "pressed": {
+                "texture": "keyboard_vowel_focused.png",
+                "scale": 0.95,
+                "style": {
+                  "fontWeight": "bold"
+                }
+              },
+              "disabled": {
+                "texture": "keyboard_vowel_disabled.png",
+                "style": {
+                  "fontWeight": "bold"
+                }
+              }
+            },
+            "rows": [
+              ["A", "E", "I", "O", "U"]
+            ],
+            "size": [900, 60],
+            "keySize": [60, 80]
+          }
+        ]
+      }
+    },
+    "JOIN_PLAYER_SCREEN": {
+      "layouts": {
+        "landscape": [
+          {
+            "type": "template",
+            "id": "back_btn",
+            "templateId": "BACK_BUTTON"
+          },
+          {
+            "type": "text",
+            "id": "server_message",
+            "anchor": [0.5, 0],
+            "text": "ENTER SIX-DIGITS CODE FOR YOUR FRIENDS ROOM",
+            "position": [0, 60],
+            "style": {
+              "width": 1980,
+              "textAlign": "center",
+              "color": "white",
+              "fontSize": 20,
+              "fontFamily": "LibreFranklinBold",
+              "fontWeight": "bold",
+              "textShadowColor": "rgba(0, 0, 0, 0.6)",
+              "textShadowOffset": {
+                "width": 0,
+                "height": 3
+              },
+              "textShadowRadius": 4
+            }
+          },
+          {
+            "type": "image",
+            "id": "enter_code_bg",
+            "anchor": [0.5, 0.5],
+            "texture": "enter_code_bg.png",
+            "position": [0, -45],
+            "size": [300, 150],
+            "scaleX": 1,
+            "style": {
+              "opacity": 1
+            }
+          },
+          {
+            "type": "text",
+            "id": "pin_val",
+            "anchor": [0.5, 0.5],
+            "text": "",
+            "position": [0, -35],
+            "style": {
+              "width": 150,
+              "height": 80,
+              "color": "white",
+              "fontSize": 40,
+              "fontWeight": "bold"
+            }
+          },
+          {
+            "type": "keyboard",
+            "anchor": [0.5, 0.5],
+            "position": [0, 30],
+            "gapX": 10,
+            "gapY": 15,
+            "states": {
+              "normal": {
+                "texture": "code_keyboard_btn.png",
+                "style": {
+                  "fontWeight": "bold"
+                }
+              },
+              "pressed": {
+                "texture": "code_keyboard_btn_focused.png",
+                "scale": 0.95,
+                "style": {
+                  "fontWeight": "bold"
+                }
+              }
+            },
+            "rows": [
+              [
+                "0",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                {
+                  "id": "delete",
+                  "action": "delete",
+                  "text": "âŒ«",
+                  "size": [60, 60],
+                  "states": {
+                    "normal": {
+                      "texture": "code_keyboard_btn.png",
+                      "style": {
+                        "fontWeight": "bold"
+                      }
+                    },
+                    "pressed": {
+                      "texture": "code_keyboard_btn_focused.png",
+                      "scale": 0.95,
+                      "style": {
+                        "fontWeight": "bold"
+                      }
+                    }
+                  }
+                }
+              ]
+            ],
+            "size": [900, 60],
+            "keySize": [60, 60]
+          },
+          {
+            "type": "button",
+            "id": "done",
+            "anchor": [0.5, 1],
+            "action": "done",
+            "text": "DONE",
+            "states": {
+              "normal": {
+                "texture": "confirm_btn.png"
+              },
+              "pressed": {
+                "texture": "confirm_btn_focused.png",
+                "scale": 0.95
+              },
+              "disabled": {
+                "texture": "confirm_btn_disabled.png",
+                "style": {
+                  "opacity": 0.6
+                }
+              }
+            },
+            "position": [0, 50],
+            "size": [200, 50],
+            "style": {
+              "fontSize": 20,
+              "fontWeight": "bold",
+              "color": "white"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

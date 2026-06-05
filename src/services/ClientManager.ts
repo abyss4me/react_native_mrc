@@ -7,24 +7,25 @@ import {
     CONNECTION_TIMEOUT_DURATION, 
     DEV_MODE 
 } from '../constants';
-import {GameState, MessageTypes, ServerMessage} from '../types/ProtocolTypes';
+import {MessageTypes, ServerMessage} from '../types/ProtocolTypes';
 import {loadPwmpClient} from '../utils/ClientLibLoader';
 
 // Interface for the application controller (NetworkContext)
 interface AppController {
-    dispatch: (msg: ServerMessage | any) => void;
+    dispatch: (msg: ServerMessage) => void;
     onConnectionEstablished?: () => void;
 }
 
 export default class ClientManager {
     public appController: AppController;
-    public client: any = null;
+    public client: any = null; // third-party library — type unknown at compile time
     public isConnected: boolean = false;
     public deviceUid: string | null = null;
     public connectionTimeout: ReturnType<typeof setTimeout> | null = null;
     private _hostUrl: string;
     private _socketCreated: boolean;
     private _lastConnectionParam: string | null = null; // Stored for manual reconnection
+    public pendingForegroundNotify: boolean = false; // Set when app returns from background before reconnect
 
     constructor(appController: AppController) {
         this.appController = appController;
@@ -35,7 +36,7 @@ export default class ClientManager {
 
         // --- MOCK DATA SIMULATION (For testing without a server) ---
         if (DEV_MODE) {
-           // this.runSimulation();
+            //this.runSimulation();
         }
     }
 
@@ -44,7 +45,7 @@ export default class ClientManager {
 
         // Simulation 1: Switch to the connection screen after 0.5 sec
        /* setTimeout(() => {
-            console.log("Simulating SET_SCREEN -> CONNECT_SCREEN");
+            console.log("Simulating LOAD_SCREEN -> CONNECT_SCREEN");
             this.appController.dispatch({
                 type: MessageTypes.GAME_STATE,
                 data: {
@@ -52,9 +53,9 @@ export default class ClientManager {
                     state: {
                         controllerConfigURL: "https://h5.play.works/dev/pavlou/mrc_engine/config.json",
                         data: {
-                            components: {
+                            state: {
                                 avatar_url: {"texture": "https://service.play.works/shared/assets/avatars/8_ball.png"},
-                                player_name: {"content": "PAVLO USHAKOV"}
+                                player_name: {"text": "PAVLO USHAKOV"}
                             }
                         }
                     }
@@ -63,39 +64,52 @@ export default class ClientManager {
         }, 5);
         return*/
         setTimeout(() => {
-            console.log("Simulating SET_SCREEN -> CONNECT_SCREEN");
+            console.log("Simulating LOAD_SCREEN -> ACTION_SCREEN");
             this.appController.dispatch({
-                type: MessageTypes.SET_SCREEN,
-                //data: {
-                    data: {
-                        screenId: "ACTION_SCREEN",
-                        // Initial state of components
-                        components: {
-                            money: {content: "1000"},
-                            avatar: {texture: "https://service.play.works/shared/assets/avatars/8_ball.png"},
-                            name: {content: "JOHN"},
-                            avatar_group: {visible: true},
-                            player_bg: {texture: `player${1}.png`}
-                        }
+                type: MessageTypes.LOAD_SCREEN,
+                data: {
+                    screenId: "CONTROL_SCREEN",
+                    // Initial state of components
+                    state: {
+                        money: {text: "1000"},
+                        avatar: {texture: "https://service.play.works/shared/assets/avatars/8_ball.png"},
+                        name: {text: "JOHN"},
+                        avatar_group: {visible: true},
+                        player_bg: {texture: `player${1}.png`},
                     }
-               // }
-            } as any);
+                }
+            } as ServerMessage);
         }, 5);
         setTimeout(() => {
-            console.log("Simulating SET_SCREEN -> CONNECT_SCREEN");
+            console.log("Simulating PATCH_STATE");
             this.appController.dispatch({
-                type: MessageTypes.UPDATE_COMPONENTS,
-               // data: {
-                    data: {
-                        components: {
-                            money: {content: "3000"},
-                            avatar: {texture: "https://service.play.works/shared/assets/avatars/8_ball.png"},
-                            name: {content: "PAUL", style: {color: "#ff0000"}},
-                            avatar_group: {visible: true},
-                            test: {style: {color: "#00ff00"}, content: "TEST COMPONENT"},
-                        }
+                type: MessageTypes.PATCH_STATE,
+                data: {
+                    state: {
+                        money: {text: "3000"},
+                        avatar: {texture: "https://service.play.works/shared/assets/avatars/8_ball.png"},
+                        name: {text: "PAUL", style: {color: "#ff0000"}},
+                        avatar_group: {visible: true},
+                        test: {style: {color: "#00ff00"}, text: "TEST COMPONENT"},
+                        health_bar: { value: 0.35 }
                     }
-               // }
+                }
+            } as ServerMessage);
+        }, 1000);
+        setTimeout(() => {
+            console.log("Simulating PATCH_STATE");
+            this.appController.dispatch({
+                type: MessageTypes.PATCH_STATE,
+                data: {
+                    state: {
+                        money: {text: "3000"},
+                        avatar: {texture: "https://service.play.works/shared/assets/avatars/8_ball.png"},
+                        name: {text: "PAUL", style: {color: "#ff0000"}},
+                        avatar_group: {visible: true},
+                        test: {style: {color: "#00ff00"}, text: "TEST COMPONENT"},
+                        health_bar: { value: 0.65 }
+                    }
+                }
             } as ServerMessage);
         }, 2000);
 
@@ -169,9 +183,10 @@ export default class ClientManager {
             type: MessageTypes.CONNECTION_STATUS,
             data: { isConnected: true }
         } as ServerMessage);
+        this.flushPendingForeground();
     }
 
-    public onRoomUpdated = (roomData?: any) => {
+    public onRoomUpdated = (_roomData?: unknown) => {
         if (!this.client) return;
         // When returning from background, onConnected does NOT fire.
         // onRoomUpdated is one of the two signals that the auto-reconnect succeeded.
@@ -185,9 +200,10 @@ export default class ClientManager {
         if (this.appController.onConnectionEstablished) {
             this.appController.onConnectionEstablished();
         }
+        this.flushPendingForeground();
     }
 
-    public onUserMessage = (data: any, payload?: any) => {
+    public onUserMessage = (data: Partial<ServerMessage>, payload?: Partial<ServerMessage>) => {
         if (!this.client) return;
         this.isConnected = true;
 
@@ -207,7 +223,8 @@ export default class ClientManager {
         } as ServerMessage);
     }
 
-    public sendMessage = (type: string, data?: any) => {
+    public sendMessage = (type: string, data?: unknown) => {
+        console.log("Sending message to server:", { type, data });
         if (this.client && this.isConnected) {
             this.client.sendMessage({ type, data });
         } else {
@@ -227,10 +244,18 @@ export default class ClientManager {
             type: MessageTypes.CONNECTION_STATUS,
             data: { isConnected: true }
         } as ServerMessage);
+        this.flushPendingForeground();
     }
 
     // --- Helpers ---
 
+    private flushPendingForeground() {
+        if (this.pendingForegroundNotify) {
+            this.pendingForegroundNotify = false;
+            this.sendMessage(MessageTypes.APP_FOREGROUND);
+            console.log("Flushed pending APP_FOREGROUND after reconnect");
+        }
+    }
     private async getDeviceId() {
         try {
             const savedId = await AsyncStorage.getItem(DEVICE_ID_STORAGE_KEY);
@@ -274,6 +299,7 @@ export default class ClientManager {
     }
 
     public disconnect() {
+        this.clearErrorConnectionTimeout(); // prevent stale timeout dispatch after cleanup
         if (this.client) {
             this.removeListeners();
             try {
@@ -329,7 +355,7 @@ export default class ClientManager {
 
         try {
             if (this.client.decrypt) {
-                let params = this.client.decrypt(p_param);
+                const params = this.client.decrypt(p_param);
                 if (params && params.roomId) {
                     targetHost = params.host || targetHost;
                     finalRoomId = params.roomId;

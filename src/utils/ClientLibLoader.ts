@@ -4,7 +4,7 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import { PWMP_CLIENT_URL } from '../constants';
+import {PWMP_CLIENT_URL, PWMP_LIB_NAME} from '../constants';
 
 let cachedPWMP: any = null;
 
@@ -17,7 +17,7 @@ let cachedPWMP: any = null;
 export async function loadPwmpClient(): Promise<any> {
     if (cachedPWMP) return cachedPWMP;
 
-    const localUri = FileSystem.cacheDirectory + 'pwmp_client.min.js';
+    const localUri = FileSystem.cacheDirectory + PWMP_LIB_NAME;
 
     console.log(`[ClientLibLoader] Downloading PWMP client from: ${PWMP_CLIENT_URL}`);
     const { status } = await FileSystem.downloadAsync(PWMP_CLIENT_URL, localUri);
@@ -30,7 +30,6 @@ export async function loadPwmpClient(): Promise<any> {
     const mod: { exports: any } = { exports: {} };
     const fn = new Function('module', 'exports', src);
     fn(mod, mod.exports);
-
     const pwmp = mod.exports?.PWMP ?? mod.exports;
     if (!pwmp) throw new Error('[ClientLibLoader] PWMP export not found in downloaded bundle');
 

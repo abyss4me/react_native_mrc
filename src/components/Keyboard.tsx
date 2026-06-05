@@ -1,12 +1,38 @@
 import React from 'react';
 import { View } from 'react-native';
-import { getAnchorStyle } from '../engine/LayoutUtils';
-import { Button } from './Button';
-import { useNetwork } from '../engine/NetworkContext';
+import { resolveAnchorStyle } from '../engine/LayoutUtils';
+import { Button, ButtonConfig, InteractPayload } from './Button';
+import { useServerData } from '../engine/NetworkContext';
 
-export const Keyboard = ({ config, globalScale = 1, parentWidth, parentHeight, onInteract }: any) => {
+interface KeyboardConfig {
+    type: 'keyboard';
+    id?: string;
+    position?: [number, number];
+    size?: [number, number];
+    anchor?: [number, number];
+    visible?: boolean;
+    rows?: (string | { id?: string; [key: string]: unknown })[][];
+    keySize?: [number, number];
+    keyStyle?: Record<string, string | number>;
+    gapX?: number;
+    gapY?: number;
+    states?: ButtonConfig['states'];
+    disabled?: boolean;
+    cooldown?: number;
+    lockScreen?: boolean;
+}
 
-    const { serverData } = useNetwork();
+interface KeyboardProps {
+    config: KeyboardConfig;
+    globalScale?: number;
+    parentWidth?: number;
+    parentHeight?: number;
+    onInteract?: (type: string, payload: InteractPayload) => void;
+}
+
+export const Keyboard = ({ config, globalScale = 1, parentWidth, parentHeight, onInteract }: KeyboardProps) => {
+
+    const { serverData } = useServerData();
 
     const rows = config.rows || [
         ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
@@ -26,10 +52,10 @@ export const Keyboard = ({ config, globalScale = 1, parentWidth, parentHeight, o
     const width = containerW ? containerW * globalScale : undefined;
     const height = containerH ? containerH * globalScale : undefined;
 
-    const [anchorX, anchorY] = config.anchor || [0, 0];
+    const [, anchorY] = config.anchor || [0, 0];
     const justifyContentY = anchorY === 0 ? 'flex-start' : (anchorY === 1 || anchorY > 0.5 ? 'flex-end' : 'center');
 
-    const anchorStyle = getAnchorStyle(config, globalScale, parentWidth, parentHeight);
+    const anchorStyle = resolveAnchorStyle(config, globalScale, parentWidth, parentHeight);
     return (
         <View style={[
             anchorStyle,
@@ -37,39 +63,41 @@ export const Keyboard = ({ config, globalScale = 1, parentWidth, parentHeight, o
                 width,
                 height,
                 position: 'absolute',
-                // Flexbox for centering the keyboard
                 alignItems: 'center',
                 justifyContent: justifyContentY,
-                gap: gapY // gap works in new versions of RN
+                gap: gapY,
             }
         ]}>
             <>{rows.map((row, i) => (
                 <View
-                    key={i} 
-                    style={{ 
-                        flexDirection: 'row', 
-                        justifyContent: 'center', 
-                        gap: gapX, // Gaps between buttons
+                    key={i}
+                    style={{
+                        flexDirection: 'row',
+                        justifyContent: 'center',
+                        gap: gapX,
                         width: '100%'
                     }}
                 >
                     <>{row.map((keyItem, j) => {
                         const isObj = typeof keyItem === 'object' && keyItem !== null;
-                        const keyStr = isObj ? (keyItem.id || `key_${i}_${j}`) : keyItem;
-                        const serverUpdate = (serverData?.components && serverData.components[keyStr]) || {};
+                        const keyStr: string = isObj ? (String((keyItem as { id?: string }).id || `key_${i}_${j}`)) : String(keyItem);
+                        const serverUpdate = (serverData?.state && serverData.state[keyStr]) || {};
                         const btnConfig = isObj ? {
                             id: keyStr,
                             type: 'button',
                             states: config?.states || {},
                             disabled: config?.disabled || false,
                             size: keySize,
-                            style: config?.keyStyle, // allow object to override
-                            ...keyItem, // spread custom properties (id, action, texture, content, layout, etc.)
+                            style: config?.keyStyle,
+                            // Keyboard-level defaults, overridden by individual key config
+                            ...(config?.cooldown !== undefined ? { cooldown: config.cooldown } : {}),
+                            ...(config?.lockScreen !== undefined ? { lockScreen: config.lockScreen } : {}),
+                            ...keyItem,
                             ...serverUpdate
                         } : {
                             type: 'button',
                             id: keyStr,
-                            content: keyStr,
+                            text: keyStr,
                             action: keyStr,
                             states: config?.states || {},
                             disabled: config?.disabled || false,
@@ -78,6 +106,9 @@ export const Keyboard = ({ config, globalScale = 1, parentWidth, parentHeight, o
                                 fontSize: 20,
                                 color: '#fff'
                             },
+                            // Keyboard-level defaults, overridden by individual key config
+                            ...(config?.cooldown !== undefined ? { cooldown: config.cooldown } : {}),
+                            ...(config?.lockScreen !== undefined ? { lockScreen: config.lockScreen } : {}),
                             ...serverUpdate
                         };
 
@@ -86,7 +117,7 @@ export const Keyboard = ({ config, globalScale = 1, parentWidth, parentHeight, o
                                 key={keyStr}
                                 onInteract={onInteract}
                                 globalScale={globalScale}
-                                config={btnConfig as any}
+                                config={btnConfig as ButtonConfig}
                             />
                         );
                     })}</>

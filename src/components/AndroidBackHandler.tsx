@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Platform, BackHandler, Alert } from 'react-native';
-import { useNetwork } from '../engine/NetworkContext';
+import { useConnection } from '../engine/NetworkContext';
 import { SCREEN } from '../constants';
 
 interface AndroidBackHandlerProps {
@@ -10,7 +10,7 @@ interface AndroidBackHandlerProps {
 }
 
 export default function AndroidBackHandler({ currentScreenId, setCurrentScreenId, setConfigUrl }: AndroidBackHandlerProps) {
-    const { disconnect } = useNetwork();
+    const { disconnect } = useConnection();
 
     useEffect(() => {
         if (Platform.OS !== 'android') return;

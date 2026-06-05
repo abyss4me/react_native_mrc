@@ -3,54 +3,54 @@ import {
     View,
     Text,
     Image,
-    Pressable, // Replaced TouchableOpacity with Pressable
+    Pressable,
     StyleSheet,
     ViewStyle,
     TextStyle,
-    Vibration
 } from 'react-native';
-import { useNetwork } from '../engine/NetworkContext';
-import { getAnchorStyle } from '../engine/LayoutUtils';
+import { useServerData } from '../engine/NetworkContext';
+import { resolveAnchorStyle, rotationTransform } from '../engine/LayoutUtils';
 import { ComponentMap } from './ComponentRegistry';
-import { ButtonStates } from '../types/LayoutTypes';
-import {useLayout} from "../engine/LayoutContext";
-import {useInputGuard} from "../engine/InputGuardContext";
+import { ButtonStates, ElementConfig } from '../types/LayoutTypes';
+import { useLayout } from "../engine/LayoutContext";
+import { useInputGuard } from "../engine/InputGuardContext";
+import { triggerHaptic } from '../utils/haptics';
+import { applyServerDataToChild } from '../utils/applyServerData';
 
 // --- Types ---
 
-interface ButtonConfig {
+type KeyPayload      = { keyCode: string };
+type ActionPayload   = { id?: string; action: string; actionPayload?: Record<string, unknown> };
+type JoystickPayload = { id?: string; x: number; y: number; magnitude: number; released?: boolean };
+type TouchpadPayload = { id?: string; [key: string]: unknown };
+export type InteractPayload = KeyPayload | ActionPayload | JoystickPayload | TouchpadPayload;
+
+export interface ButtonConfig {
     type: "button";
     id?: string;
     action?: string;
-    keyCode?: string; // Explicitly define hardware/navigation keys
-    content?: string;
+    keyCode?: string;
+    text?: string;
     disabled?: boolean;
     visible?: boolean;
     texture?: string;
     cooldown?: number;
     lockScreen?: boolean;
-
-    // NEW: User-experience enhancements
-    hitbox?: number;  // Expands the clickable area beyond the visual size
-    haptic?: "light" | "medium" | "heavy"; // Triggers local immediate vibration
-    autoRepeat?: boolean; // NEW: If true, holds down the button and repeatedly fires keyUp/keyDown
-    repeatInterval?: number; // NEW: Interval in milliseconds for auto-repeat (default: 200)
-    customData?: Record<string, any>; // Optional arbitrary data forwarded with the action event
-
-    // NEW: State-Driven UI instead of flat textures
+    hitbox?: number;
+    haptic?: "light" | "medium" | "heavy";
+    autoRepeat?: boolean;
+    repeatInterval?: number;
+    actionPayload?: Record<string, unknown>;
     states?: ButtonStates;
 
     // Placement
     position?: [number, number];
     size?: [number, number];
-    rotate?: number;
+    rotation?: number;
     anchor?: [number, number];
 
-    // Styles (Base styles that are always applied)
-    style?: Record<string, any>;
-
-    // Nested elements
-    layout?: any[];
+    style?: ViewStyle & TextStyle & { objectFit?: string };
+    layout?: ElementConfig[];
 }
 
 interface ButtonProps {
@@ -58,27 +58,22 @@ interface ButtonProps {
     globalScale?: number;
     parentWidth?: number;
     parentHeight?: number;
-    onInteract?: (type: string, payload: any) => void;
+    onInteract?: (type: string, payload: InteractPayload) => void;
 }
 
 export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentWidth, parentHeight, onInteract }) => {
-    const { serverData } = useNetwork();
     const { lockInput } = useInputGuard();
-    const { layouts, settings } = useLayout();
+    const { settings } = useLayout();
     const [isPressed, setIsPressed] = useState(false);
 
-    // 1. State Check (Disabled)
     const isDisabled = config.disabled === true;
 
-    // 2. Size Calculation
     const [w, h] = config.size || [100, 100];
     const width = w * globalScale;
     const height = h * globalScale;
 
-    // NEW: 3. Extract state configurations (with a fallback to empty objects)
     const { normal = {}, pressed = {}, disabled = {} } = config.states || {};
 
-    // Determine the ACTIVE state
     let activeStateConfig = normal;
     if (isDisabled) {
         activeStateConfig = disabled;
@@ -86,24 +81,19 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
         activeStateConfig = pressed;
     }
 
-    // Get values from the active state
     const currentTexture = activeStateConfig.texture || config.texture;
-    // If the state has a scale - use it, otherwise the default effect (0.95 for pressed, 1 for others)
     const activeScale = activeStateConfig.scale !== undefined
         ? activeStateConfig.scale
         : (isPressed && !isDisabled ? 0.95 : 1);
     const activeStateStyle = activeStateConfig.style || {};
 
-    // 4. Positioning
-    const isAbsolute = !!config.position || !!config.anchor;
-    const anchorStyle = isAbsolute ? getAnchorStyle(config, globalScale, parentWidth, parentHeight) : {};
+    const anchorStyle = resolveAnchorStyle(config, globalScale, parentWidth, parentHeight);
 
-    // 5. Transformations
-    const transformStyles = [];
-    if (config.rotate !== undefined) transformStyles.push({ rotate: `${config.rotate}deg` } as any);
-    transformStyles.push({ scale: activeScale } as any);
+    const transformStyles: ({ rotate: string } | { scale: number })[] = [
+        ...rotationTransform(config.rotation),
+        { scale: activeScale },
+    ];
 
-    // --- Transform HitSlop ---
     const calculatedHitSlop = config.hitbox ? {
         top: config.hitbox,
         bottom: config.hitbox,
@@ -111,38 +101,31 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
         right: config.hitbox
     } : undefined;
 
-    // --- Auto-repeat reference ---
     const autoRepeatIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
     const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const [isCoolingDown, setIsCoolingDown] = useState(false);
 
-    // --- Event Handlers ---
-
-    // Set cooldown time value with the following priority: config.cooldown > settings.defaultCooldown > 50ms
-    const defaultCooldown = (settings.defaultCooldown !== undefined) ? (settings.defaultCooldown <= 0 ? 50 : settings.defaultCooldown) : 50; // Fallback to 50ms if defaultCooldown is not set or invalid
+    // Priority: config.cooldown > settings.defaultCooldown > 50ms fallback
+    const defaultCooldown = (settings.defaultCooldown !== undefined) ? (settings.defaultCooldown <= 0 ? 50 : settings.defaultCooldown) : 50;
     const cooldownDuration = config?.cooldown !== undefined ? config?.cooldown : defaultCooldown;
 
     const handlePressIn = () => {
         if (isDisabled || isCoolingDown) return;
         setIsPressed(true);
 
-        // Instant input lock — fires synchronously before pressOut/network, zero delay.
-        // The shield stays up until ScreenRenderer detects the new screen and calls unlockInput().
+        // Locks input shield synchronously — stays up until ScreenRenderer calls unlockInput() on new screen.
         if (config.lockScreen) {
             lockInput();
         }
 
-        // Immediate local haptic feedback if configured
         if (config.haptic) {
-            const hapticDurations = { light: 50, medium: 100, heavy: 200 };
-            Vibration.vibrate(hapticDurations[config.haptic] || 50);
+            triggerHaptic(config.haptic);
         }
 
         const navKeyCode = config.keyCode || (!config.action ? config.id : null);
         if (navKeyCode && onInteract) {
             onInteract("keyDown", { keyCode: navKeyCode });
 
-            // Start auto-repeat if enabled for navigation keys
             if (config.autoRepeat) {
                 const interval = config.repeatInterval || 200;
                 autoRepeatIntervalRef.current = setInterval(() => {
@@ -158,7 +141,6 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
         if (isDisabled || isCoolingDown) return;
         setIsPressed(false);
 
-        // Clear auto-repeat interval if active
         if (autoRepeatIntervalRef.current) {
             clearInterval(autoRepeatIntervalRef.current);
             autoRepeatIntervalRef.current = null;
@@ -167,26 +149,20 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
         const navKeyCode = config.keyCode || (!config.action ? config.id : null);
         let eventWasFired: boolean = true;
 
-        // If it is standard navigation, fire keyUp.
         if (navKeyCode && onInteract) {
             onInteract("keyUp", { keyCode: navKeyCode });
             eventWasFired = true;
-        }
-        // If it HAS an action, it is a custom game trigger (e.g. "submit", "fire_weapon")
-        else if (config.action && onInteract) {
+        } else if (config.action && onInteract) {
             onInteract("action", {
                 id: config.id,
                 action: config.action,
-                ...(config.customData ? { customData: config.customData } : {})
+                ...(config.actionPayload ? { actionPayload: config.actionPayload } : {})
             });
             eventWasFired = true;
         }
 
-        // Apply cooldown if configured and an event was fired
-        // Cooldown is needed to prevent issues with rapid taps or holds, especially for navigation keys that can cause unintended multiple triggers. It ensures a minimum delay between interactions, improving user experience and preventing potential input flooding.
-        setIsCoolingDown(true);
+        // Cooldown prevents rapid re-triggering on fast taps or holds.
         if (eventWasFired && cooldownDuration > 0) {
-
             setIsCoolingDown(true);
             debounceTimeoutRef.current = setTimeout(() => {
                 setIsCoolingDown(false);
@@ -194,7 +170,7 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
         }
     };
 
-    // Cleanup timeouts safely
+    // Cleanup on unmount
     React.useEffect(() => {
         return () => {
             if (autoRepeatIntervalRef.current) clearInterval(autoRepeatIntervalRef.current);
@@ -214,7 +190,7 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
                 {
                     width,
                     height,
-                    position: isAbsolute ? 'absolute' : 'relative',
+                    position: (config.position || config.anchor) ? 'absolute' : 'relative',
                     justifyContent: 'center',
                     alignItems: 'center',
                     transform: transformStyles,
@@ -224,70 +200,89 @@ export const Button: React.FC<ButtonProps> = ({ config, globalScale = 1, parentW
             ]}
         >
             <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }]} pointerEvents="none">
+                {/* Pre-warm all state textures into GPU memory to avoid first-press decode lag */}
+                {[normal.texture, pressed.texture, disabled.texture, config.texture]
+                    .filter((t): t is string => !!t && t !== currentTexture)
+                    .filter((t, i, arr) => arr.indexOf(t) === i)
+                    .map((tex, i) => (
+                        <Image
+                            key={`precache-${i}`}
+                            source={{ uri: tex }}
+                            style={{ width: 0, height: 0, position: 'absolute', opacity: 0 }}
+                        />
+                    ))}
                 {currentTexture ? (
                     <Image
                         source={{ uri: currentTexture }}
                         style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-                        resizeMode={config.style?.objectFit || "stretch"}
+                        resizeMode={(config.style?.objectFit as import('react-native').ImageResizeMode) || "stretch"}
                     />
                 ) : null}
-                {(!config.layout && !!config.content) ? (
+                {(!config.layout && !!config.text) ? (
                     <Text style={[
                         config.style as TextStyle,
                         activeStateStyle as TextStyle,
                         {
-                            color: (activeStateStyle as TextStyle).color || config.style?.color || 'white',
-                            fontSize: config.style?.fontSize ? (parseInt(config.style.fontSize) * globalScale) : (20 * globalScale),
+                            color: (activeStateStyle as TextStyle).color ?? (config.style?.color as string | undefined) ?? 'white',
+                            fontSize: config.style?.fontSize ? (parseInt(String(config.style.fontSize)) * globalScale) : (20 * globalScale),
                             includeFontPadding: false,
                             textAlign: 'center',
                             textAlignVertical: 'center',
-                            transform: [{ rotate: `-${config.rotate || 0}deg` }]
+                            transform: [{ rotate: `-${config.rotation || 0}deg` }]
                         }
                     ]}>
-                        {config.content}
+                        {config.text}
                     </Text>
                 ) : null}
-                {config.layout ? config.layout.map((el: any, i: number) => {
-                    if (el.visible === false) return null;
-
-                    const Component = ComponentMap[el.type];
-                    if (!Component) return null;
-
-                    const childConfig = { ...el };
-
-                    if (serverData?.components?.[childConfig.id]) {
-                        const updates = serverData.components[childConfig.id];
-                        const baseStyle = childConfig.style;
-                        Object.assign(childConfig, updates);
-                        if (baseStyle) {
-                            childConfig.style = { ...baseStyle, ...(updates.style || {}) };
-                        }
-                    }
-
-                    if (serverData && childConfig.id && serverData[childConfig.id] !== undefined) {
-                        if (childConfig.type === 'text') childConfig.content = serverData[childConfig.id];
-                        if (childConfig.type === 'image') childConfig.texture = serverData[childConfig.id];
-                    }
-
-                    return (
-                        <Component
-                            key={i}
-                            config={childConfig}
-                            globalScale={globalScale}
-                            onInteract={onInteract}
-                            parentWidth={width}
-                            parentHeight={height}
-                        />
-                    );
-                }) : null}
+                {config.layout ? (
+                    <ButtonChildLayout
+                        layout={config.layout}
+                        globalScale={globalScale}
+                        onInteract={onInteract}
+                        width={width}
+                        height={height}
+                    />
+                ) : null}
             </View>
         </Pressable>
     );
 };
 
+// Separate component so only buttons WITH a layout prop pay the cost of
+// subscribing to serverData. Plain buttons never re-render on server updates.
+interface ButtonChildLayoutProps {
+    layout: ElementConfig[];
+    globalScale: number;
+    onInteract?: (type: string, payload: InteractPayload) => void;
+    width: number;
+    height: number;
+}
 const styles = StyleSheet.create({
-    button: {
-        // Default styles for the button
-    }
+    button: {}
 });
+
+const ButtonChildLayout: React.FC<ButtonChildLayoutProps> = ({ layout, globalScale, onInteract, width, height }) => {
+    const { serverData } = useServerData();
+    return (
+        <>
+            {layout.map((el: ElementConfig, i: number) => {
+                if (el.visible === false) return null;
+                const Component = ComponentMap[el.type];
+                if (!Component) return null;
+                const childConfig = { ...el } as Record<string, unknown>;
+                applyServerDataToChild(childConfig, serverData);
+                return (
+                    <Component
+                        key={i}
+                        config={childConfig as unknown as ElementConfig}
+                        globalScale={globalScale}
+                        onInteract={onInteract}
+                        parentWidth={width}
+                        parentHeight={height}
+                    />
+                );
+            })}
+        </>
+    );
+};
 

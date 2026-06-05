@@ -17,15 +17,15 @@ export interface ComponentState {
     disabled?: boolean;     // Replaces disableButtons/enableButtons arrays
     
     // Content & Appearance
-    content?: string | number; // For Text components
-    texture?: string;          // For Image/Button components
-    src?: string;              // Alias for texture
-    
+    text?: string | number; // For Text/Button components
+    texture?: string;       // For Image/Button components
+    src?: string;           // Alias for texture
+
     // Dynamic Styles (Optional)
     style?: Record<string, string | number>; 
     
     // Allow any other props
-    [key: string]: any; 
+    [key: string]: unknown;
 }
 
 // ==========================================
@@ -33,17 +33,18 @@ export interface ComponentState {
 // ==========================================
 
 /**
- * The main Data Payload.
+ * The main data object.
  * Represents the state of the game/UI at any given moment.
  */
 export interface GameState {
-    // --- PART A: Component Map (UI State) ---
+    // --- UI Component State Map ---
     // Direct manipulation of specific UI elements by their ID.
-    // Logic: "back_btn": { "disabled": false }
-    components?: Record<string, ComponentState>;
+    // e.g. "back_btn": { "disabled": false }
+    state?: Record<string, ComponentState>;
+    patches?: { target?: { ids?: string[] }; props?: Record<string, unknown> }[];
 
     // Allow any other root-level keys
-    [key: string]: any; 
+    [key: string]: unknown;
 }
 
 
@@ -57,8 +58,8 @@ export interface GameState {
  */
 export const MessageTypes = {
     // Server -> Client
-    SET_SCREEN:             "SET_SCREEN",
-    UPDATE_COMPONENTS:      "UPDATE_COMPONENTS",
+    LOAD_SCREEN:            "LOAD_SCREEN",
+    PATCH_STATE:            "PATCH_STATE",
     TRIGGER_HAPTICS:        "TRIGGER_HAPTICS",
     SHOW_ERROR:             "SHOW_ERROR",
     GAME_STATE:             "gameState",
@@ -67,6 +68,10 @@ export const MessageTypes = {
     CONNECTION_STATUS:      "CONNECTION_STATUS",
     CONNECTION_TIMEOUT:     "CONNECTION_TIMEOUT",
     CLEAR_CONNECTION_ERROR: "CLEAR_CONNECTION_ERROR",
+
+    // Client -> Server (app lifecycle)
+    APP_BACKGROUND:         "appBackground",
+    APP_FOREGROUND:         "appForeground",
 } as const;
 
 
@@ -75,24 +80,24 @@ export const MessageTypes = {
 // ==========================================
 
 /**
- * Message: SET_SCREEN
+ * Message: LOAD_SCREEN
  * Instruction to switch layout and hydrate state immediately.
  */
-export interface SetScreenMessage {
-    type: typeof MessageTypes.SET_SCREEN;
+export interface LoadScreenMessage {
+    type: typeof MessageTypes.LOAD_SCREEN;
     data: GameState & {
-        /** The ID of the screen to load from layout.json */
+        /** The ID of the screen to load from config.json */
         screenId: string; 
     };
 }
 
 /**
- * Message: UPDATE_COMPONENTS
+ * Message: PATCH_STATE
  * Instruction to merge new data into the current state.
  */
-export interface UpdateDataMessage {
-    type: typeof MessageTypes.UPDATE_COMPONENTS;
-    data: GameState; // Just the state data, no screenId required
+export interface PatchStateMessage {
+    type: typeof MessageTypes.PATCH_STATE;
+    data: GameState;
 }
 
 /**
@@ -115,13 +120,14 @@ export interface GameStateMessage {
 export interface TriggerHapticsMessage {
     type: typeof MessageTypes.TRIGGER_HAPTICS;
     data?: {
-        pattern?: number[]; // React Native Vibration pattern is an array of numbers (e.g. [0, 200, 100, 200])
+        pattern?: number[];
         duration?: number;
     };
 }
 
 /**
- * A lightweight way for the server to flash a quick error at the top/bottom of the phone (e.g., "Not your turn!") without writing a full UPDATE_COMPONENTS layout change
+ * A lightweight way for the server to flash a quick error at the top/bottom of the phone
+ * (e.g., "Not your turn!") without writing a full PATCH_STATE layout change.
  */
 export interface ShowErrorToastMessage {
     type: typeof MessageTypes.SHOW_ERROR;
@@ -134,8 +140,9 @@ export interface ShowErrorToastMessage {
 // ==========================================
 // INTERNAL COMMUNICATION MESSAGES
 // ==========================================
+
 /**
- * Message: CONNECTION_ERROR, internal message to trigger the disconnect overlay on the client
+ * Message: CONNECTION_STATUS, internal message to trigger the disconnect overlay on the client
  */
 export interface ConnectionErrorMessage {
     type: typeof MessageTypes.CONNECTION_STATUS;
@@ -145,7 +152,7 @@ export interface ConnectionErrorMessage {
 }
 
 /**
- * Message: CONNECTION_TIMEOUT, internal message to trigger the timeout screen on the client after failed reconnection attempts
+ * Message: CONNECTION_TIMEOUT, internal message to trigger the timeout screen after failed reconnection
  */
 export interface ConnectionTimeoutErrorMessage {
     type: typeof MessageTypes.CONNECTION_TIMEOUT;
@@ -155,7 +162,7 @@ export interface ConnectionTimeoutErrorMessage {
 }
 
 /**
- * Message: CLEAR_CONNECTION_ERROR, internal message to clear any connection error messages and return to the normal game screen
+ * Message: CLEAR_CONNECTION_ERROR, internal message to clear connection errors and return to normal screen
  */
 export interface ClearConnectionErrorMessage {
     type: typeof MessageTypes.CLEAR_CONNECTION_ERROR;
@@ -163,8 +170,8 @@ export interface ClearConnectionErrorMessage {
 
 
 export type ServerMessage =
-    | SetScreenMessage 
-    | UpdateDataMessage 
+    | LoadScreenMessage
+    | PatchStateMessage
     | ConnectionErrorMessage
     | GameStateMessage
     | TriggerHapticsMessage
@@ -173,10 +180,10 @@ export type ServerMessage =
     | ClearConnectionErrorMessage;
 
 // ==========================================
-// 4. OUTGOING MESSAGES ( Client -> Server )
+// OUTGOING MESSAGES ( Client -> Server )
 // ==========================================
 
 export interface ClientMessage {
     type: string;
-    data?: any;
+    data?: unknown;
 }

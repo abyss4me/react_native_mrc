@@ -1,6 +1,7 @@
 import { Image } from 'react-native';
 import { Asset } from 'expo-asset';
 import { ENGINE_VERSION } from '../constants';
+import { LayoutConfig, ElementConfig, ButtonConfig, ButtonStateConfig, ScreenConfig } from '../types/LayoutTypes';
 
 /**
  * Compares two version strings (e.g. "1.2.3").
@@ -20,7 +21,7 @@ const isVerCompatible = (engineVersion: string, requiredVersion: string): boolea
  * Validates that the current engine version satisfies the layout's minClientVersion.
  * Returns true if compatible, false if the app needs an update.
  */
-export const checkLayoutCompatibility = (layout: any): boolean => {
+export const checkLayoutCompatibility = (layout: LayoutConfig): boolean => {
     const minClientVersion: string | undefined = layout?.minClientVersion;
     if (!minClientVersion) return true; // No restriction defined — allow
 
@@ -35,7 +36,7 @@ export const checkLayoutCompatibility = (layout: any): boolean => {
     return true;
 };
 
-export const preloadAssets = async (layouts: any) => {
+export const preloadAssets = async (layouts: LayoutConfig) => {
     const imagesToPreload: string[] = [];
     const resolveTexture = (textureStr: string, baseUrl: string) => {
         if (!textureStr) return null;
@@ -47,67 +48,75 @@ export const preloadAssets = async (layouts: any) => {
         return `${baseUrl}${textureStr}`;
     };
 
-    const collectTextures = (element: any) => {
+    const collectTextures = (element: ElementConfig) => {
         if (!element) return;
 
         const baseUrl = layouts?.settings?.assetsBaseUrl || '';
+        const btn = element as ButtonConfig;
 
         // Resolve element's main texture
-        if (element.texture) {
-            const resolvedTexture = resolveTexture(element.texture, baseUrl);
+        if (btn.texture) {
+            const resolvedTexture = resolveTexture(btn.texture, baseUrl);
             imagesToPreload.push(resolvedTexture);
-            element.texture = resolvedTexture; // Update JSON reference to absolute URL
+            btn.texture = resolvedTexture;
         }
 
         // Resolving URL for images that might use "src"
-        if (element.src) {
-            const resolvedSrc = resolveTexture(element.src, baseUrl);
+        const imgEl = element as { src?: string };
+        if (imgEl.src) {
+            const resolvedSrc = resolveTexture(imgEl.src, baseUrl);
             imagesToPreload.push(resolvedSrc);
-            element.src = resolvedSrc;
+            imgEl.src = resolvedSrc;
         }
 
-        if (element.states) {
-            Object.values(element.states).forEach((state: any) => {
-                if (state.texture) {
+        if (btn.states) {
+            Object.values(btn.states).forEach((state: ButtonStateConfig | undefined) => {
+                if (state?.texture) {
                     const resolvedTexture = resolveTexture(state.texture, baseUrl);
                     imagesToPreload.push(resolvedTexture);
-                    state.texture = resolvedTexture; // Update state JSON reference
+                    state.texture = resolvedTexture;
                 }
             });
         }
 
-        if (element.rows && Array.isArray(element.rows)) {
-            element.rows.forEach((row: any) => {
+        const kbEl = element as { rows?: (string | { id?: string; texture?: string })[][] };
+        if (kbEl.rows && Array.isArray(kbEl.rows)) {
+            kbEl.rows.forEach((row) => {
                 if (Array.isArray(row)) {
-                    row.forEach((keyItem: any) => {
+                    row.forEach((keyItem) => {
                         if (typeof keyItem === 'object' && keyItem !== null) {
-                            collectTextures(keyItem);
+                            collectTextures(keyItem as ElementConfig);
                         }
                     });
                 }
             });
         }
 
-        if (element.layout) {
-            element.layout.forEach(collectTextures);
+        if (btn.layout) {
+            btn.layout.forEach(collectTextures);
         }
     };
 
-    Object.values(layouts.screens).forEach((screen: any) => {
-        screen.layout?.forEach(collectTextures);
+    Object.values(layouts.screens ?? {}).forEach((screen) => {
+        const s = screen as ScreenConfig;
+        s.layout?.forEach(collectTextures);
+        // Auto mode: collect from per-orientation layout arrays
+        s.layouts?.landscape?.forEach(collectTextures);
+        s.layouts?.portrait?.forEach(collectTextures);
     });
 
-    Object.values(layouts.screens).forEach((screen: any) => {
-        if (screen && screen?.background) {
-            collectTextures(screen.background);
-            //screen.background.forEach(collectTextures);
+    Object.values(layouts.screens ?? {}).forEach((screen) => {
+        const s = screen as ScreenConfig;
+        if (s?.background) {
+            collectTextures(s.background as unknown as ElementConfig);
         }
     });
     
-    if (layouts.background && layouts.background.texture) {
-        const resolvedTexture = resolveTexture(layouts.background.texture, layouts?.settings?.assetsBaseUrl || '');
+    const themeBg = layouts.theme?.background;
+    if (themeBg && typeof themeBg === 'object' && themeBg.texture) {
+        const resolvedTexture = resolveTexture(themeBg.texture, layouts?.settings?.assetsBaseUrl || '');
         imagesToPreload.push(resolvedTexture);
-        layouts.background.texture = resolvedTexture; // Update global background JSON reference
+        themeBg.texture = resolvedTexture;
     }
 
     //resolve for templates
@@ -122,10 +131,11 @@ export const preloadAssets = async (layouts: any) => {
     const uniqueImages = Array.from(new Set(imagesToPreload.filter(img => img)));
 
     const cacheImages = uniqueImages.map(image => {
-
         if (typeof image === 'string' && (image.startsWith('http') || image.startsWith('https'))) {
-            // For external URLs
-            return Image.prefetch(image);
+            // For external URLs — catch individually so one 404 doesn't abort the rest
+            return Image.prefetch(image).catch(() => {
+                console.warn(`[AssetsLoader] Failed to prefetch: ${image}`);
+            });
         } else {
             // For local ones (if you pass through require)
             return Asset.fromModule(image).downloadAsync();

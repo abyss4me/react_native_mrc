@@ -9,9 +9,14 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "requireFullScreen": true,
+      "infoPlist": {
+        "UIRequiresFullScreen": true
+      }
     },
     "android": {
+      "resizeableActivity": true,
       "package": "com.playworks.mrcengine",
       "intentFilters": [
         {

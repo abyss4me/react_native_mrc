@@ -1,4 +1,4 @@
-// src/engine/useUIScale.ts
+// src/hooks/useUIScale.ts
 import { useWindowDimensions } from 'react-native';
 import { BASE_DESIGN_WIDTH, BASE_DESIGN_HEIGHT } from '../constants';
 

@@ -2,8 +2,28 @@
 import React from 'react';
 import { ComponentMap } from './ComponentRegistry';
 import { useLayout } from '../engine/LayoutContext';
+import { InteractPayload } from './Button';
 
-export const Template = ({ config, ...rest }: any) => {
+interface TemplateConfig {
+    type: 'template';
+    templateId: string;
+    id?: string;
+    position?: [number, number];
+    size?: [number, number];
+    anchor?: [number, number];
+    visible?: boolean;
+    [key: string]: unknown; // Allow overrides merged onto the resolved template
+}
+
+interface TemplateProps {
+    config: TemplateConfig;
+    globalScale?: number;
+    parentWidth?: number;
+    parentHeight?: number;
+    onInteract?: (type: string, payload: InteractPayload) => void;
+}
+
+export const Template = ({ config, ...rest }: TemplateProps) => {
     const { layouts } = useLayout();
     const templates = layouts?.templates;
 

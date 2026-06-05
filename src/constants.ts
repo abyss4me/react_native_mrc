@@ -8,7 +8,8 @@
 
 export const HOST_SERVER_URL = "https://multiplayer.play.works";
 
-export const PWMP_CLIENT_URL = "https://service.play.works/service/sdk/libs/pwmp_client.min.js";
+export const PWMP_LIB_NAME = "pwmp_client.min.js";
+export const PWMP_CLIENT_URL = "https://service.play.works/service/sdk/libs/" + PWMP_LIB_NAME;
 
 export const TRANSPORT = ["websocket", "polling"];
 
@@ -31,7 +32,7 @@ export const SCREEN = {
     DEV:        'CONTROL_SCREEN', // Default screen for web/debug
 } as const;
 
-// Safety timeout: auto-unlock if SET_SCREEN never arrives (e.g. network drop, server bug).
+// Safety timeout: auto-unlock if LOAD_SCREEN never arrives (e.g. network drop, server bug).
 // Prevents the controller from being permanently frozen.
 export const LOCK_SAFETY_TIMEOUT_MS = 5000;
 
@@ -43,4 +44,7 @@ export const LOCK_SAFETY_TIMEOUT_MS = 5000;
 //Wgy not pixels? Using design units instead of pixels allows us to create a more flexible and scalable UI. If we used fixed pixel values, the UI might look good on one device but could be too small or too large on another device with a different screen size or resolution. By using design units and scaling them based on the base design dimensions, we can ensure that the UI maintains its proportions and looks consistent across all supported devices, regardless of their actual pixel density or screen size.
 export const BASE_DESIGN_WIDTH = 844;
 export const BASE_DESIGN_HEIGHT = 390;
+
+// Transition screen fade-in animation duration (ms)
+export const TRANSITION_FADE_DURATION = 400;
 

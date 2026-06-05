@@ -7,8 +7,8 @@ import {
     Pressable,
     Animated
 } from 'react-native';
-// Import your network context
-import { useNetwork } from '../engine/NetworkContext';
+import { useConnection } from '../engine/NetworkContext';
+import { TRANSITION_FADE_DURATION } from '../constants';
 
 interface TransitionScreenProps {
     roomId: string;
@@ -16,19 +16,16 @@ interface TransitionScreenProps {
 }
 
 export const TransitionScreen: React.FC<TransitionScreenProps> = ({ roomId, onCancel }) => {
-    // Animation value for a smooth fade-in effect
     const fadeAnim = useRef(new Animated.Value(0)).current;
-    const { connect, connectionError, reconnect } = useNetwork();
+    const { connect, connectionError, reconnect } = useConnection();
 
     useEffect(() => {
-        // 1. Start the fade-in animation
         Animated.timing(fadeAnim, {
             toValue: 1,
-            duration: 400,
+            duration: TRANSITION_FADE_DURATION,
             useNativeDriver: true,
         }).start();
 
-        // 2. Initiate connection passing our p_param/roomId to ClientManager!
         if (roomId) {
             connect(roomId);
         }
@@ -80,7 +77,7 @@ export const TransitionScreen: React.FC<TransitionScreenProps> = ({ roomId, onCa
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0F0F0F', // Deep dark background
+        backgroundColor: '#0F0F0F',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -90,7 +87,7 @@ const styles = StyleSheet.create({
     },
     loader: {
         marginBottom: 24,
-        transform: [{ scale: 1.5 }], // Make the spinner a bit larger
+        transform: [{ scale: 1.5 }],
     },
     title: {
         fontSize: 28,

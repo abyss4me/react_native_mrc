@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { LOCK_SAFETY_TIMEOUT_MS } from '../constants';
+import { useLayout } from './LayoutContext';
 
 interface InputGuardContextType {
     isLocked: boolean;
@@ -14,8 +15,10 @@ const InputGuardContext = createContext<InputGuardContextType>({
 });
 
 export const InputGuardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { settings } = useLayout();
     const [isLocked, setIsLocked] = useState(false);
     const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const timeoutMs = settings.lockSafetyTimeout ?? LOCK_SAFETY_TIMEOUT_MS;
 
     const unlockInput = useCallback(() => {
         // Clear safety timer if unlock arrives before timeout
@@ -34,12 +37,22 @@ export const InputGuardProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             clearTimeout(safetyTimerRef.current);
         }
 
-        // Fail-safe: auto-unlock after timeout if SET_SCREEN never arrives
+        // Fail-safe: auto-unlock after timeout if LOAD_SCREEN never arrives
         safetyTimerRef.current = setTimeout(() => {
-            console.warn(`[InputGuard] Safety timeout triggered after ${LOCK_SAFETY_TIMEOUT_MS}ms — auto-unlocking.`);
+            console.warn(`[InputGuard] Safety timeout triggered after ${timeoutMs}ms — auto-unlocking.`);
             setIsLocked(false);
             safetyTimerRef.current = null;
-        }, LOCK_SAFETY_TIMEOUT_MS);
+        }, timeoutMs);
+    }, [timeoutMs]);
+
+    // Clear any pending safety timer on unmount to avoid setState on an unmounted component
+    useEffect(() => {
+        return () => {
+            if (safetyTimerRef.current) {
+                clearTimeout(safetyTimerRef.current);
+                safetyTimerRef.current = null;
+            }
+        };
     }, []);
 
     return (
@@ -54,7 +67,7 @@ export const InputGuardProvider: React.FC<{ children: React.ReactNode }> = ({ ch
  *
  * Lock lifecycle:
  *  - LOCK:   Button with `lockScreen: true` calls `lockInput()` on `pressIn` — synchronous, instant.
- *            A safety timeout starts — auto-unlocks after LOCK_SAFETY_TIMEOUT_MS if no SET_SCREEN arrives.
+ *            A safety timeout starts — auto-unlocks after LOCK_SAFETY_TIMEOUT_MS if no LOAD_SCREEN arrives.
  *  - UNLOCK: `ScreenRenderer` calls `unlockInput()` via `useEffect` when `screenConfig` prop changes.
  *            This cancels the safety timer.
  */

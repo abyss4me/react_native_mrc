@@ -1,16 +1,37 @@
 import React from 'react';
-import { Image, View, StyleSheet } from 'react-native';
-import { getAnchorStyle } from '../engine/LayoutUtils';
+import { Image, View, ImageStyle, ViewStyle } from 'react-native';
+import { resolveAnchorStyle, rotationTransform } from '../engine/LayoutUtils';
 
-export const ImageComponent = ({ config, globalScale = 1, parentWidth, parentHeight }: any) => {
-    const anchorStyle = getAnchorStyle(config, globalScale, parentWidth, parentHeight);
+interface ImageComponentConfig {
+    type: 'image';
+    id?: string;
+    position?: [number, number];
+    size?: [number, number];
+    anchor?: [number, number];
+    rotation?: number;
+    visible?: boolean;
+    src?: string;
+    texture?: string;
+    scale?: number;
+    scaleX?: number;
+    scaleY?: number;
+    style?: ImageStyle;
+}
+
+interface ImageComponentProps {
+    config: ImageComponentConfig;
+    globalScale?: number;
+    parentWidth?: number;
+    parentHeight?: number;
+}
+
+export const ImageComponent = ({ config, globalScale = 1, parentWidth, parentHeight }: ImageComponentProps) => {
+    const anchorStyle = resolveAnchorStyle(config, globalScale, parentWidth, parentHeight);
 
     const [w, h] = config.size || [100, 100];
-
     const width = w * globalScale;
     const height = h * globalScale;
 
-    // Determine the image source
     const source = config.src || config.texture;
     if (!source) return null;
 
@@ -19,56 +40,48 @@ export const ImageComponent = ({ config, globalScale = 1, parentWidth, parentHei
     let finalScaleX: number = config.scaleX !== undefined ? config.scaleX : 1;
     let finalScaleY: number = config.scaleY !== undefined ? config.scaleY : 1;
 
-    //if there is a global scale
     if (config.scale !== undefined) {
         finalScaleX *= config.scale;
         finalScaleY *= config.scale;
     }
 
-
-
-    const transforms: any[] = [];
-    // ===============================================
+    const transforms: ({ scaleX: number } | { scaleY: number } | { rotate: string })[] = [];
     if (finalScaleX !== 1 || finalScaleY !== 1) {
-        // In React Native, it's not necessary to push {scaleX} and {scaleY} separately,
-        // if both exist, it's better this way:
         transforms.push({ scaleX: finalScaleX });
         transforms.push({ scaleY: finalScaleY });
     }
+    transforms.push(...rotationTransform(config.rotation));
 
-    //rotation
-    if (config.rotation !== undefined) {
-        transforms.push({ rotate: `${config.rotation}deg` });
-    }
+    const imageStyle: ImageStyle = {
+        ...config.style,
+        width: '100%',
+        height: '100%',
+        ...(transforms.length > 0 ? { transform: transforms } : {}),
+    };
 
-    const finalImageStyle = [
-        config.style, // Styles from JSON (borderRadius, opacity, etc.)
-        {
-            width: '100%', // Stretch to the entire container
-            height: '100%',
-            // Add transform if it exists
-            transform: transforms.length > 0 ? transforms : undefined
-        }
-    ];
+    const rawBorderRadius = config.style?.borderRadius;
+    const borderRadius = typeof rawBorderRadius === 'number'
+        ? rawBorderRadius * globalScale
+        : 0;
+
+    const rawOpacity = config.style?.opacity;
+    const opacity = typeof rawOpacity === 'number' ? rawOpacity : 1;
+
+    const containerStyle: ViewStyle = {
+        width,
+        height,
+        position: 'absolute',
+        borderRadius,
+        overflow: 'hidden',
+        opacity,
+    };
 
     return (
-        <View style={[
-            anchorStyle,
-            {
-                width,
-                height,
-                position: 'absolute',
-                // In RN, borderRadius is applied to the container,
-                // if we want to crop the image
-                borderRadius: (config.style?.borderRadius ? parseInt(config.style.borderRadius) : 0) * globalScale,
-                overflow: 'hidden',
-                opacity: config.style?.opacity !== undefined ? config.style.opacity : 1
-            }
-        ]}>
+        <View style={[anchorStyle, containerStyle]}>
             <Image
                 source={imageSource}
-                style={finalImageStyle}
-                resizeMode={config.style?.objectFit === 'cover' ? 'cover' : 'contain'}
+                style={imageStyle}
+                resizeMode={config.style?.resizeMode ?? 'contain'}
             />
         </View>
     );
