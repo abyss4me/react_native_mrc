@@ -3,8 +3,8 @@
     "apps": [],
     "details": [
       {
-        "appID": "TEAMID1234.com.playworks.mrc",
-        "paths": [ "/dev/pavlou/wheel_of_fortune/apps/wheel_of_fortune/mobile_controller/*" ]
+        "appID": "9Y6K6SMV4D.com.playworks.mrcengine",
+        "paths": [ "/dev/pavlou/mrc_engine/*" ]
       }
     ]
   }

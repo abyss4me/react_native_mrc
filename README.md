@@ -1,6 +1,8 @@
-# Welcome to your Expo app 👋
+# Welcome to your Expo app
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+
+> 📋 **Build history & release notes** → [`RELEASES.md`](./RELEASES.md)
 
 ## Get started
 
@@ -82,6 +84,101 @@ Return to root: `cd ...`
 
 Install to device: `adb install -r android\app\build\outputs\apk\debug\app-debug.apk`.
 
+## How to run on iPhone device
+
+> **Prerequisites**: An Apple ID, [Expo Go](https://apps.apple.com/app/expo-go/id982107779) installed on the iPhone, and both the iPhone and your machine on the same Wi-Fi network.
+
+### Option A — Expo Go (fastest, no build required)
+
+1. Install **Expo Go** from the App Store on your iPhone.
+2. Start the development server:
+   ```bash
+   npx expo start
+   ```
+3. In the Expo CLI output, press **`i`** to print the QR code in the terminal, or it will appear in the browser. Open the **Camera** app on your iPhone and scan it. The app opens directly in Expo Go.
+
+   > If the device is on a different network segment, press **`e`** in the Expo CLI to send the link by email, or enter the `exp://` URL manually inside Expo Go.
+
+### Option B — Development build on device (requires macOS + Xcode)
+
+1. On a Mac, install **Xcode** from the Mac App Store and accept the license:
+   ```bash
+   sudo xcode-select --install
+   ```
+2. Connect your iPhone via USB and **trust this computer** on the device.
+3. Generate the native `ios/` project (run once, or after native dependency changes):
+   ```bash
+   npx expo prebuild --clean
+   ```
+4. Run the app on the connected device:
+   ```bash
+   npx expo run:ios --device
+   ```
+   Alternatively, open `ios/MRCEngine.xcworkspace` in Xcode, select your iPhone as the run target, and press **▶ Run**.
+
+### Option C — EAS Build development client (cloud build, works from any OS including Windows)
+
+1. Install the EAS CLI globally:
+   ```bash
+   npm install -g eas-cli
+   ```
+2. Log in with your Expo account:
+   ```bash
+   eas login
+   ```
+3. Initialise EAS configuration if not present:
+   ```bash
+   eas build:configure
+   ```
+4. Build a development client for iOS:
+   ```bash
+   eas build --profile development --platform ios
+   ```
+5. After the build completes, download the `.ipa` from the [Expo dashboard](https://expo.dev) and install it on your device via **TestFlight** or a direct install tool such as **Apple Configurator 2**.
+
+---
+
+## How to build release IPA
+
+> An **Apple Developer Program** membership ($99/year) is required to distribute or archive a release IPA.
+
+### Option A — Xcode Archive (requires macOS)
+
+1. Generate the native `ios/` project:
+   ```bash
+   npx expo prebuild --clean
+   ```
+2. Open the workspace in Xcode:
+   ```bash
+   open ios/MRCEngine.xcworkspace
+   ```
+3. In Xcode, select **Any iOS Device (arm64)** as the run destination.
+4. Set the **Active Scheme** to `Release` via **Product → Scheme → Edit Scheme → Run → Build Configuration: Release**.
+5. Archive the app:
+   **Product → Archive**
+6. When the Organizer opens, click **Distribute App** and follow the wizard to export to **App Store Connect** or as an **Ad Hoc** IPA.
+
+### Option B — EAS Build production (cloud build, works from Windows)
+
+1. Install EAS CLI and log in (skip if already done):
+   ```bash
+   npm install -g eas-cli
+   eas login
+   ```
+2. Build the production IPA in the cloud:
+   ```bash
+   eas build --profile production --platform ios
+   ```
+3. Download the signed `.ipa` from the [Expo dashboard](https://expo.dev) once the build succeeds.
+4. Submit directly to **TestFlight / App Store Connect**:
+   ```bash
+   eas submit --platform ios
+   ```
+
+   > For ad-hoc or enterprise distribution, configure a matching provisioning profile in your `eas.json` under the `production` profile before building.
+
+---
+
 ## App Links & Deep Linking Setup (Production & Environment Config)
 
 When setting up deep linking (App Links for Android, Universal Links for iOS) in a new environment, follow these critical rules to ensure the OS automatically opens the app instead of falling back to the browser:
@@ -160,3 +257,133 @@ Ensure the scheme, host, and paths in `app.json` match your deployment environme
 }
 ```
 *Note: After any changes to `app.json` intent filters, you must rebuild the app (`npx expo prebuild` and generate a new APK/IPA).*
+
+---
+
+## Server → Controller Protocol Reference
+
+All messages sent from the **game server** to the **mobile controller** follow this envelope:
+
+```json
+{ "type": "<MESSAGE_TYPE>", "data": { ... } }
+```
+
+### `LOAD_SCREEN`
+Switches the controller to a different screen and hydrates its state atomically.
+The input guard (screen lock) is **automatically released** when the new screen renders —
+even if `screenId` is the same as the current screen.
+
+```json
+{
+  "type": "LOAD_SCREEN",
+  "data": {
+    "screenId": "CONTROL_SCREEN",
+    "state": {
+      "player_name": { "text": "John" },
+      "health_bar":  { "value": 0.8 }
+    }
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `screenId` | `string` | ID of the screen defined in `config.json` |
+| `state` | `object` | Optional. Component states to merge on load |
+
+---
+
+### `PATCH_STATE`
+Merges partial state into the current screen without switching screens.
+Does **not** release the input guard.
+
+```json
+{
+  "type": "PATCH_STATE",
+  "data": {
+    "state": {
+      "money_label": { "text": "3000" },
+      "ok_btn":      { "disabled": true }
+    }
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `state` | `object` | Map of component IDs → state overrides |
+| `patches` | `array` | Optional. Patch protocol for bulk updates by target group |
+
+---
+
+### `UNLOCK_SCREEN`
+Releases the input guard (screen lock) **without switching screens**.
+
+Use this when the game handles a controller action (e.g. opens a popup, confirms a move)
+but the controller layout stays the same — no `LOAD_SCREEN` will follow.
+
+```json
+{ "type": "UNLOCK_SCREEN" }
+```
+
+> **No `data` field needed.**
+
+**Input guard unlock paths — summary:**
+
+| Situation | What game sends | How it unlocks |
+|---|---|---|
+| Controller switches screen | `LOAD_SCREEN` | `ScreenRenderer` effect on render |
+| Same screen reloaded | `LOAD_SCREEN` (same `screenId`) | `ScreenRenderer` effect on `loadScreenSignal` |
+| No screen change (popup, etc.) | `UNLOCK_SCREEN` | `NetworkProvider` calls `unlockInput()` directly |
+| Server never responds | — | Safety timeout (`lockSafetyTimeout` in config, default `3000ms`) |
+
+**Typical popup flow:**
+```json
+{ "type": "PATCH_STATE",   "data": { "state": { "ok_btn": { "disabled": true } } } }
+{ "type": "UNLOCK_SCREEN" }
+```
+
+**Why two messages instead of one?**
+`PATCH_STATE` arrives constantly (timers, score updates, health changes) — not only in response
+to a locked button press. Auto-unlocking on every `PATCH_STATE` would release the lock
+prematurely on any background update. `UNLOCK_SCREEN` is an **explicit, intentional** signal
+from the game that the locked action was acknowledged.
+
+---
+
+### `TRIGGER_HAPTICS`
+Triggers a haptic vibration pattern on the device.
+
+```json
+{
+  "type": "TRIGGER_HAPTICS",
+  "data": {
+    "duration": 100,
+    "pattern": [0, 100, 50, 100]
+  }
+}
+```
+
+---
+
+### `SHOW_ERROR`
+Displays a transient error toast on the controller.
+
+```json
+{
+  "type": "SHOW_ERROR",
+  "data": { "message": "Not your turn!" }
+}
+```
+
+---
+
+### Client → Server messages
+
+| Type | Sent when |
+|---|---|
+| `appBackground` | App moves to background |
+| `appForeground` | App returns to foreground |
+| Custom action type | Button / joystick / touchpad interaction |
+
+## Build Description

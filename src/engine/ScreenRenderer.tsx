@@ -13,9 +13,11 @@ import { ElementConfig, ScreenConfig } from '../types/LayoutTypes';
 
 interface ScreenRendererProps {
     screenConfig: ScreenConfig | undefined;
+    /** Incremented by Main on every LOAD_SCREEN message — triggers unlock even when screenId hasn't changed. */
+    loadScreenSignal: number;
 }
 
-const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig }) => {
+const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig, loadScreenSignal }) => {
     const { serverData } = useServerData();
     const { sendMessage } = useConnection();
     const { unlockInput } = useInputGuard();
@@ -24,13 +26,14 @@ const ScreenRenderer: React.FC<ScreenRendererProps> = ({ screenConfig }) => {
 
     const globalBackground = layouts?.theme?.background;
 
-    // Unlock input shield when a new screen is rendered.
-    // This is the authoritative unlock point — no server round-trip, no timeout.
+    // Unlock input shield when a LOAD_SCREEN message arrives.
+    // loadScreenSignal increments on every LOAD_SCREEN — even same-screen reloads —
+    // so unlockInput() always fires regardless of whether screenConfig reference changed.
     useEffect(() => {
         if (screenConfig) {
             unlockInput();
         }
-    }, [screenConfig, unlockInput]);
+    }, [screenConfig, loadScreenSignal, unlockInput]);
 
     const handleAction = useCallback((type: string, payload: InteractPayload) => {
         sendMessage(type, payload);

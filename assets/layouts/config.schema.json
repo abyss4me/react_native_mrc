@@ -1,0 +1,804 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://h5.play.works/dev/pavlou/mrc_engine/config.schema.json",
+  "title": "MRC Engine Layout Config",
+  "description": "Schema for the pw_mobile_remote_control_engine layout configuration file (config.json).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["initialScreen", "screens"],
+  "properties": {
+
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference URI."
+    },
+
+    "minClientVersion": {
+      "type": "string",
+      "description": "Minimum compatible client version (semver). Clients older than this will be rejected.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "examples": ["1.0.0"]
+    },
+
+    "initialScreen": {
+      "type": "string",
+      "description": "The screen key shown first when the app loads. Must match a key in 'screens'.",
+      "examples": ["CONTROL_SCREEN"]
+    },
+
+    "settings": {
+      "$ref": "#/definitions/LayoutSettings"
+    },
+
+    "theme": {
+      "$ref": "#/definitions/ThemeConfig"
+    },
+
+    "templates": {
+      "type": "object",
+      "description": "Named, reusable component definitions. Reference them in a screen layout using type='template' + templateId.",
+      "additionalProperties": {
+        "$ref": "#/definitions/ElementConfig"
+      },
+      "examples": [
+        {
+          "BACK_BUTTON": {
+            "type": "button",
+            "keyCode": "Backspace",
+            "texture": "back_btn.png",
+            "size": [80, 40]
+          }
+        }
+      ]
+    },
+
+    "screens": {
+      "type": "object",
+      "description": "All screens in the app. Each key is the screen identifier used with initialScreen and server navigation events.",
+      "additionalProperties": {
+        "$ref": "#/definitions/ScreenConfig"
+      },
+      "minProperties": 1
+    }
+  },
+
+  "definitions": {
+
+    "LayoutSettings": {
+      "type": "object",
+      "description": "Global runtime settings.",
+      "additionalProperties": false,
+      "properties": {
+        "orientation": {
+          "type": "string",
+          "enum": ["landscape", "portrait", "auto"],
+          "description": "Device orientation mode. 'auto' uses separate landscape/portrait layout arrays per screen.",
+          "default": "auto"
+        },
+        "keepAwake": {
+          "type": "boolean",
+          "description": "Prevent the device screen from sleeping while the app is in the foreground.",
+          "default": true
+        },
+        "useSafeArea": {
+          "type": "boolean",
+          "description": "Apply device safe-area insets (notch / home indicator) to the root layout.",
+          "default": false
+        },
+        "assetsBaseUrl": {
+          "type": "string",
+          "description": "Base URL prepended to all relative texture paths.",
+          "format": "uri",
+          "examples": ["https://cdn.example.com/assets/images/"]
+        },
+        "defaultCooldown": {
+          "type": "integer",
+          "description": "Global default cooldown (ms) between repeated button presses. Can be overridden per button.",
+          "minimum": 0,
+          "default": 50
+        },
+        "lockSafetyTimeout": {
+          "type": "integer",
+          "description": "Auto-unlock timeout (ms) if a LOAD_SCREEN message never arrives after locking.",
+          "minimum": 0,
+          "default": 5000
+        }
+      }
+    },
+
+    "ThemeConfig": {
+      "type": "object",
+      "description": "Visual design tokens shared across all screens.",
+      "additionalProperties": false,
+      "properties": {
+        "fonts": {
+          "type": "object",
+          "description": "Named remote font map. Key = font family name used in 'style.fontFamily'; value = TTF URL.",
+          "additionalProperties": {
+            "type": "string",
+            "format": "uri"
+          },
+          "examples": [
+            { "LibreFranklinBold": "https://cdn.example.com/fonts/libre_franklin_bold.ttf" }
+          ]
+        },
+        "background": {
+          "$ref": "#/definitions/BackgroundConfig",
+          "description": "Default background for all screens unless overridden at screen level."
+        },
+        "styles": {
+          "type": "object",
+          "description": "Named style presets. Reference them in elements via '@styles.<name>'.",
+          "additionalProperties": {
+            "$ref": "#/definitions/StyleValue"
+          }
+        }
+      }
+    },
+
+    "BackgroundConfig": {
+      "description": "Screen/theme background. Either a CSS color string, a remote image URL, or an object with a local texture filename.",
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "CSS color (e.g. '#1a1a2e') or remote image URL.",
+          "examples": ["#1a1a2e", "https://cdn.example.com/bg.jpg"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["texture"],
+          "properties": {
+            "texture": {
+              "type": "string",
+              "description": "Filename relative to 'settings.assetsBaseUrl'.",
+              "examples": ["background.jpg"]
+            }
+          }
+        }
+      ]
+    },
+
+    "StyleValue": {
+      "type": "object",
+      "description": "A React Native style object. Accepts any valid RN ViewStyle / TextStyle / ImageStyle keys.",
+      "additionalProperties": true,
+      "properties": {
+        "color": { "type": "string" },
+        "backgroundColor": { "type": "string" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "fontSize": { "type": "number", "minimum": 0 },
+        "fontWeight": { "type": "string", "examples": ["normal", "bold", "100", "200", "300", "400", "500", "600", "700", "800", "900"] },
+        "fontStyle": { "type": "string", "enum": ["normal", "italic"] },
+        "fontFamily": { "type": "string" },
+        "textAlign": { "type": "string", "enum": ["auto", "left", "right", "center", "justify"] },
+        "textShadowColor": { "type": "string" },
+        "textShadowRadius": { "type": "number" },
+        "textShadowOffset": {
+          "type": "object",
+          "properties": {
+            "width": { "type": "number" },
+            "height": { "type": "number" }
+          }
+        },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "borderRadius": { "type": "number" },
+        "borderWidth": { "type": "number" },
+        "borderColor": { "type": "string" },
+        "padding": { "type": "number" },
+        "margin": { "type": "number" },
+        "tintColor": { "type": "string" }
+      }
+    },
+
+    "ScreenConfig": {
+      "type": "object",
+      "description": "A single screen definition. Use 'layout' for a fixed-orientation screen or 'layouts' for orientation-aware screens.",
+      "additionalProperties": false,
+      "properties": {
+        "background": {
+          "$ref": "#/definitions/BackgroundConfig",
+          "description": "Screen-level background override."
+        },
+        "layout": {
+          "type": "array",
+          "description": "Flat element list for single-orientation screens (when settings.orientation is 'landscape' or 'portrait').",
+          "items": { "$ref": "#/definitions/ElementConfig" }
+        },
+        "layouts": {
+          "type": "object",
+          "description": "Per-orientation element lists. Used when settings.orientation is 'auto'.",
+          "additionalProperties": false,
+          "properties": {
+            "landscape": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/ElementConfig" }
+            },
+            "portrait": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/ElementConfig" }
+            }
+          }
+        }
+      }
+    },
+
+    "Vector2": {
+      "type": "array",
+      "description": "A 2D coordinate or size as [x, y] in logical pixels.",
+      "items": { "type": "number" },
+      "minItems": 2,
+      "maxItems": 2
+    },
+
+    "AnchorVector2": {
+      "type": "array",
+      "description": "Normalized anchor point [x, y] in range [0, 1]. [0,0] = top-left, [1,1] = bottom-right, [0.5,0.5] = center.",
+      "items": { "type": "number", "minimum": 0, "maximum": 1 },
+      "minItems": 2,
+      "maxItems": 2
+    },
+
+    "HapticFeedback": {
+      "type": "string",
+      "description": "Haptic feedback intensity triggered on press.",
+      "enum": ["light", "medium", "heavy"]
+    },
+
+    "ButtonStateConfig": {
+      "type": "object",
+      "description": "Visual overrides applied when a button enters a given state.",
+      "additionalProperties": false,
+      "properties": {
+        "texture": {
+          "type": "string",
+          "description": "Texture filename (relative to assetsBaseUrl) or full URL to display in this state."
+        },
+        "scale": {
+          "type": "number",
+          "description": "Uniform scale applied to the button in this state.",
+          "exclusiveMinimum": 0,
+          "examples": [0.95, 1.0, 1.1]
+        },
+        "style": {
+          "$ref": "#/definitions/StyleValue",
+          "description": "Style overrides merged on top of the base style in this state."
+        }
+      }
+    },
+
+    "ButtonStates": {
+      "type": "object",
+      "description": "Visual configuration per button state.",
+      "additionalProperties": false,
+      "properties": {
+        "normal": { "$ref": "#/definitions/ButtonStateConfig" },
+        "pressed": { "$ref": "#/definitions/ButtonStateConfig" },
+        "disabled": { "$ref": "#/definitions/ButtonStateConfig" }
+      }
+    },
+
+    "ElementConfig": {
+      "description": "Any layout element. Discriminated by the 'type' field.",
+      "oneOf": [
+        { "$ref": "#/definitions/ButtonElement" },
+        { "$ref": "#/definitions/TextElement" },
+        { "$ref": "#/definitions/ImageElement" },
+        { "$ref": "#/definitions/ContainerElement" },
+        { "$ref": "#/definitions/TemplateElement" },
+        { "$ref": "#/definitions/KeyboardElement" },
+        { "$ref": "#/definitions/TouchpadElement" },
+        { "$ref": "#/definitions/ProgressBarElement" },
+        { "$ref": "#/definitions/JoystickElement" },
+        { "$ref": "#/definitions/DpadElement" }
+      ]
+    },
+
+    "ButtonElement": {
+      "type": "object",
+      "description": "A pressable button that can send key codes or custom action events to the server.",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "const": "button" },
+        "id": {
+          "type": "string",
+          "description": "Unique identifier within the screen. Used by PATCH_STATE to target this element."
+        },
+        "action": {
+          "type": "string",
+          "description": "Custom action name sent to the server when the button is tapped."
+        },
+        "keyCode": {
+          "type": "string",
+          "description": "Keyboard key code sent to the server (e.g. 'Enter', 'Backspace', 'Up').",
+          "examples": ["Enter", "Backspace", "Up", "Down", "Left", "Right"]
+        },
+        "text": {
+          "type": "string",
+          "description": "Label rendered inside the button."
+        },
+        "texture": {
+          "type": "string",
+          "description": "Default background texture filename or URL."
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "Initial disabled state. Can be toggled at runtime via PATCH_STATE.",
+          "default": false
+        },
+        "visible": {
+          "type": "boolean",
+          "description": "Initial visibility. Can be toggled at runtime via PATCH_STATE.",
+          "default": true
+        },
+        "cooldown": {
+          "type": "integer",
+          "description": "Cooldown in ms between presses. Overrides settings.defaultCooldown for this button.",
+          "minimum": 0
+        },
+        "lockScreen": {
+          "type": "boolean",
+          "description": "When true, pressing this button triggers a screen-lock state until the server sends LOAD_SCREEN.",
+          "default": false
+        },
+        "hitbox": {
+          "type": "integer",
+          "description": "Extra touch area (dp) added around the button's visual bounds.",
+          "minimum": 0
+        },
+        "haptic": { "$ref": "#/definitions/HapticFeedback" },
+        "autoRepeat": {
+          "type": "boolean",
+          "description": "Fire press events repeatedly while the button is held down.",
+          "default": false
+        },
+        "repeatInterval": {
+          "type": "integer",
+          "description": "Interval in ms between auto-repeat events when autoRepeat is true.",
+          "minimum": 1
+        },
+        "actionPayload": {
+          "type": "object",
+          "description": "Arbitrary key-value data merged into the action event payload.",
+          "additionalProperties": true
+        },
+        "states": { "$ref": "#/definitions/ButtonStates" },
+        "position": { "$ref": "#/definitions/Vector2" },
+        "size": { "$ref": "#/definitions/Vector2" },
+        "anchor": { "$ref": "#/definitions/AnchorVector2" },
+        "rotation": {
+          "type": "number",
+          "description": "Rotation in degrees (clockwise)."
+        },
+        "style": {
+          "description": "Base style for the button and its text label. Use '@styles.<name>' to reference a theme preset.",
+          "oneOf": [
+            { "$ref": "#/definitions/StyleValue" },
+            {
+              "type": "string",
+              "pattern": "^@styles\\..+$",
+              "description": "Reference to a named style preset, e.g. '@styles.controlButtonLabel'."
+            }
+          ]
+        },
+        "layout": {
+          "type": "array",
+          "description": "Child elements rendered inside the button (for composite buttons).",
+          "items": { "$ref": "#/definitions/ElementConfig" }
+        }
+      }
+    },
+
+    "TextElement": {
+      "type": "object",
+      "description": "A static or server-updated text label.",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "const": "text" },
+        "id": {
+          "type": "string",
+          "description": "Unique identifier. Target with PATCH_STATE to update 'text' or 'style' at runtime."
+        },
+        "text": {
+          "type": "string",
+          "description": "Initial text content. Supports '@data.<key>' tokens for server data injection.",
+          "examples": ["PLEASE WAIT...", "@data.playerName"]
+        },
+        "position": { "$ref": "#/definitions/Vector2" },
+        "anchor": { "$ref": "#/definitions/AnchorVector2" },
+        "rotation": { "type": "number", "description": "Rotation in degrees (clockwise)." },
+        "visible": { "type": "boolean", "default": true },
+        "style": {
+          "oneOf": [
+            { "$ref": "#/definitions/StyleValue" },
+            {
+              "type": "string",
+              "pattern": "^@styles\\..+$",
+              "description": "Reference to a named style preset, e.g. '@styles.controlButtonLabel'."
+            }
+          ]
+        }
+      }
+    },
+
+    "ImageElement": {
+      "type": "object",
+      "description": "A static or server-swappable image.",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "const": "image" },
+        "id": {
+          "type": "string",
+          "description": "Unique identifier. Target with PATCH_STATE to swap 'texture' at runtime."
+        },
+        "texture": {
+          "type": "string",
+          "description": "Image filename (relative to assetsBaseUrl) or full URL."
+        },
+        "position": { "$ref": "#/definitions/Vector2" },
+        "size": { "$ref": "#/definitions/Vector2" },
+        "anchor": { "$ref": "#/definitions/AnchorVector2" },
+        "rotation": { "type": "number", "description": "Rotation in degrees (clockwise)." },
+        "visible": { "type": "boolean", "default": true },
+        "scaleX": { "type": "number", "description": "Horizontal scale multiplier.", "examples": [1, -1] },
+        "scaleY": { "type": "number", "description": "Vertical scale multiplier.", "examples": [1, -1] },
+        "style": { "$ref": "#/definitions/StyleValue" }
+      }
+    },
+
+    "ContainerElement": {
+      "type": "object",
+      "description": "An invisible grouping element for compositing child elements.",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "const": "container" },
+        "id": { "type": "string" },
+        "position": { "$ref": "#/definitions/Vector2" },
+        "size": { "$ref": "#/definitions/Vector2" },
+        "anchor": { "$ref": "#/definitions/AnchorVector2" },
+        "rotation": { "type": "number" },
+        "visible": { "type": "boolean", "default": true },
+        "style": { "$ref": "#/definitions/StyleValue" },
+        "layout": {
+          "type": "array",
+          "description": "Child elements positioned relative to this container's top-left corner.",
+          "items": { "$ref": "#/definitions/ElementConfig" }
+        }
+      }
+    },
+
+    "TemplateElement": {
+      "type": "object",
+      "description": "An instance of a named template defined in the top-level 'templates' map.",
+      "additionalProperties": false,
+      "required": ["type", "templateId"],
+      "properties": {
+        "type": { "type": "string", "const": "template" },
+        "id": { "type": "string", "description": "Instance identifier for runtime targeting." },
+        "templateId": {
+          "type": "string",
+          "description": "Key of the template to instantiate from the 'templates' map.",
+          "examples": ["BACK_BUTTON", "AVATAR_GROUP"]
+        },
+        "position": { "$ref": "#/definitions/Vector2" },
+        "size": { "$ref": "#/definitions/Vector2" },
+        "anchor": { "$ref": "#/definitions/AnchorVector2" },
+        "cooldown": {
+          "type": "integer",
+          "description": "Per-instance cooldown override (ms).",
+          "minimum": 0
+        }
+      }
+    },
+
+    "KeyboardKey": {
+      "description": "A single keyboard key — either a plain character string or a fully configured key object.",
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "A single character that becomes the key label, action, and keyCode.",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "description": "A fully configured special key (e.g. Pass, Clear, Delete).",
+          "additionalProperties": false,
+          "required": ["id", "action"],
+          "properties": {
+            "id": { "type": "string", "description": "Key identifier, also sent as the action name." },
+            "action": { "type": "string", "description": "Action event name sent to the server when this key is pressed." },
+            "text": { "type": "string", "description": "Label displayed on the key face." },
+            "size": { "$ref": "#/definitions/Vector2", "description": "Override the key's visual size." },
+            "states": { "$ref": "#/definitions/ButtonStates" }
+          }
+        }
+      ]
+    },
+
+    "KeyboardElement": {
+      "type": "object",
+      "description": "An on-screen keyboard grid. Each cell is either a plain character or a fully configured KeyboardKey object.",
+      "additionalProperties": false,
+      "required": ["type", "rows"],
+      "properties": {
+        "type": { "type": "string", "const": "keyboard" },
+        "id": { "type": "string" },
+        "position": { "$ref": "#/definitions/Vector2" },
+        "size": { "$ref": "#/definitions/Vector2" },
+        "anchor": { "$ref": "#/definitions/AnchorVector2" },
+        "visible": { "type": "boolean", "default": true },
+        "gapX": {
+          "type": "number",
+          "description": "Horizontal gap between keys in logical pixels.",
+          "minimum": 0
+        },
+        "gapY": {
+          "type": "number",
+          "description": "Vertical gap between rows in logical pixels.",
+          "minimum": 0
+        },
+        "keySize": {
+          "$ref": "#/definitions/Vector2",
+          "description": "Default size [width, height] for all keys unless overridden per key."
+        },
+        "rows": {
+          "type": "array",
+          "description": "An ordered array of rows, each being an array of KeyboardKey entries.",
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/KeyboardKey" },
+            "minItems": 1
+          },
+          "minItems": 1
+        },
+        "states": {
+          "$ref": "#/definitions/ButtonStates",
+          "description": "Default state visuals applied to all keys unless overridden per key."
+        }
+      }
+    },
+
+    "TouchpadElement": {
+      "type": "object",
+      "description": "A trackpad surface that streams pointer delta or normalized position events to the server.",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "const": "touchpad" },
+        "id": { "type": "string" },
+        "position": { "$ref": "#/definitions/Vector2" },
+        "size": { "$ref": "#/definitions/Vector2" },
+        "anchor": { "$ref": "#/definitions/AnchorVector2" },
+        "rotation": { "type": "number" },
+        "visible": { "type": "boolean", "default": true },
+        "action": {
+          "type": "string",
+          "description": "Action name sent to the server on each move event. Default: 'touchpad'.",
+          "default": "touchpad"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["relative", "normalized"],
+          "description": "'relative' sends dx/dy deltas; 'normalized' sends x/y in [0,1] relative to the touchpad size.",
+          "default": "relative"
+        },
+        "sensitivity": {
+          "type": "number",
+          "description": "Multiplier applied to raw pixel deltas (relative mode only). Default: 1.",
+          "exclusiveMinimum": 0,
+          "default": 1
+        },
+        "deadzone": {
+          "type": "number",
+          "description": "Minimum pixel movement before a delta is reported. Default: 0.",
+          "minimum": 0,
+          "default": 0
+        },
+        "continuous": {
+          "type": "boolean",
+          "description": "Fire update events while dragging (true) or only on release (false). Default: true.",
+          "default": true
+        },
+        "throttle": {
+          "description": "Throttle strategy: 'raf' syncs to display refresh (~16ms), a number sets a fixed interval in ms, 0 disables throttling.",
+          "oneOf": [
+            { "type": "number", "minimum": 0 },
+            { "type": "string", "const": "raf" }
+          ],
+          "default": "raf"
+        },
+        "sendReleaseEvent": {
+          "type": "boolean",
+          "description": "Send a final {dx:0, dy:0} event when the finger lifts. Default: false.",
+          "default": false
+        },
+        "texture": { "type": "string", "description": "Background texture filename or URL." },
+        "style": { "$ref": "#/definitions/StyleValue" },
+        "tintColor": { "type": "string", "description": "CSS color applied as a tint to the background texture." },
+        "showIndicator": {
+          "type": "boolean",
+          "description": "Show a floating dot that follows the active touch point. Default: true.",
+          "default": true
+        },
+        "indicatorSize": {
+          "type": "number",
+          "description": "Diameter of the indicator dot in logical pixels. Default: 40.",
+          "minimum": 1,
+          "default": 40
+        },
+        "indicatorTexture": { "type": "string", "description": "Custom texture for the indicator dot." },
+        "indicatorStyle": { "$ref": "#/definitions/StyleValue" },
+        "clampIndicator": {
+          "type": "boolean",
+          "description": "Prevent the indicator from leaving the touchpad bounds. Default: true.",
+          "default": true
+        },
+        "resetOnRelease": {
+          "type": "boolean",
+          "description": "Move the indicator back to center when the finger lifts. Default: true.",
+          "default": true
+        }
+      }
+    },
+
+    "ProgressBarElement": {
+      "type": "object",
+      "description": "A display-only fill bar. Its value is driven by the server via PATCH_STATE.",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "const": "progressbar" },
+        "id": { "type": "string", "description": "Used by PATCH_STATE to update 'value' at runtime." },
+        "position": { "$ref": "#/definitions/Vector2" },
+        "size": { "$ref": "#/definitions/Vector2" },
+        "anchor": { "$ref": "#/definitions/AnchorVector2" },
+        "rotation": { "type": "number" },
+        "visible": { "type": "boolean", "default": true },
+        "value": {
+          "type": "number",
+          "description": "Initial fill ratio in [0, 1]. Updated at runtime by the server.",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["right", "left", "up", "down"],
+          "description": "Direction in which the bar fills. Default: 'right'.",
+          "default": "right"
+        },
+        "style": {
+          "$ref": "#/definitions/StyleValue",
+          "description": "Style for the track (background)."
+        },
+        "fillStyle": {
+          "$ref": "#/definitions/StyleValue",
+          "description": "Style for the fill (foreground)."
+        }
+      }
+    },
+
+    "JoystickElement": {
+      "type": "object",
+      "description": "An analog joystick that streams a normalized direction vector {x, y, magnitude} to the server.",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "const": "joystick" },
+        "id": { "type": "string" },
+        "position": { "$ref": "#/definitions/Vector2" },
+        "size": { "$ref": "#/definitions/Vector2" },
+        "anchor": { "$ref": "#/definitions/AnchorVector2" },
+        "rotation": { "type": "number" },
+        "visible": { "type": "boolean", "default": true },
+        "action": {
+          "type": "string",
+          "description": "Action name sent to the server on each move event. Default: 'joystick'.",
+          "default": "joystick"
+        },
+        "deadzone": {
+          "type": "number",
+          "description": "Normalized deadzone radius in [0, 1] relative to joystick radius. Inputs within report magnitude: 0. Default: 0.05.",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.05
+        },
+        "throttle": {
+          "description": "Throttle strategy: 'raf' syncs to display refresh, a number sets a fixed ms interval.",
+          "oneOf": [
+            { "type": "number", "minimum": 0 },
+            { "type": "string", "const": "raf" }
+          ],
+          "default": "raf"
+        },
+        "sendReleaseEvent": {
+          "type": "boolean",
+          "description": "Send a final zero-vector event when the finger lifts. Default: true.",
+          "default": true
+        },
+        "texture": { "type": "string", "description": "Background (base plate) texture filename or URL." },
+        "style": { "$ref": "#/definitions/StyleValue" },
+        "stickSize": {
+          "type": "number",
+          "description": "Diameter of the stick knob in logical pixels. Default: half the component size.",
+          "minimum": 1
+        },
+        "stickTexture": { "type": "string", "description": "Texture for the moveable stick knob." },
+        "stickStyle": { "$ref": "#/definitions/StyleValue" },
+        "haptic": { "$ref": "#/definitions/HapticFeedback" }
+      }
+    },
+
+    "DpadElement": {
+      "type": "object",
+      "description": "A directional-pad composed of four buttons (up, down, left, right).",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "const": "dpad" },
+        "id": { "type": "string" },
+        "position": { "$ref": "#/definitions/Vector2" },
+        "anchor": { "$ref": "#/definitions/AnchorVector2" },
+        "visible": { "type": "boolean", "default": true },
+        "buttonSize": {
+          "$ref": "#/definitions/Vector2",
+          "description": "Size [width, height] of each individual directional button. Default: [80, 80]."
+        },
+        "radius": {
+          "type": "number",
+          "description": "Distance from center to each button center in logical pixels. Default: buttonSize width.",
+          "minimum": 0
+        },
+        "haptic": { "$ref": "#/definitions/HapticFeedback" },
+        "hitbox": {
+          "type": "integer",
+          "description": "Extra touch area (dp) added around each button.",
+          "minimum": 0
+        },
+        "autoRepeat": {
+          "type": "boolean",
+          "description": "Fire events repeatedly while a direction button is held. Default: false.",
+          "default": false
+        },
+        "repeatInterval": {
+          "type": "integer",
+          "description": "Interval in ms between auto-repeat events. Only used when autoRepeat is true.",
+          "minimum": 1
+        },
+        "texture": { "type": "string", "description": "Shared texture for all four directional buttons." },
+        "states": { "$ref": "#/definitions/ButtonStates" },
+        "style": { "$ref": "#/definitions/StyleValue" },
+        "keyCodes": {
+          "type": "object",
+          "description": "Override the key code sent for each direction.",
+          "additionalProperties": false,
+          "properties": {
+            "up":    { "type": "string", "default": "Up" },
+            "down":  { "type": "string", "default": "Down" },
+            "left":  { "type": "string", "default": "Left" },
+            "right": { "type": "string", "default": "Right" }
+          }
+        },
+        "text": {
+          "type": "object",
+          "description": "Override the label on each directional button.",
+          "additionalProperties": false,
+          "properties": {
+            "up":    { "type": "string" },
+            "down":  { "type": "string" },
+            "left":  { "type": "string" },
+            "right": { "type": "string" }
+          }
+        }
+      }
+    }
+
+  }
+}
+
+

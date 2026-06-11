@@ -1,11 +1,12 @@
 {
+  "$schema": "./config.schema.json",
   "minClientVersion": "1.0.0",
   "settings": {
     "orientation": "auto",
     "keepAwake": true,
     "useSafeArea": false,
     "defaultCooldown": 50,
-    "lockSafetyTimeout": 7000,
+    "lockSafetyTimeout": 2500,
     "assetsBaseUrl": "https://h5.play.works/dev/pavlou/mrc_engine/assets/images/"
   },
   "theme": {
@@ -213,12 +214,14 @@
             "buttonSize": [80, 80],
             "radius": 80,
             "haptic": "light",
-            "hitbox": 30,
+            "hitbox": 10,
             "autoRepeat": true,
             "repeatInterval": 250,
             "texture": "control_btn.png",
             "states": {
-              "pressed": { "texture": "control_btn_focused.png" }
+              "pressed": {
+                "texture": "control_btn_focused.png"
+              }
             }
           },
           {
@@ -261,7 +264,9 @@
             "repeatInterval": 250,
             "texture": "control_btn.png",
             "states": {
-              "pressed": { "texture": "control_btn_focused.png" }
+              "pressed": {
+                "texture": "control_btn_focused.png"
+              }
             }
           },
           {
@@ -531,7 +536,7 @@
             "position": [0, 80],
             "style": "@styles.testStyle"
           }
-         ]
+        ]
       }
     },
     "WHEEL_SCREEN": {
@@ -568,7 +573,7 @@
             }
           },
           {
-            "type": "button",
+            "type": "template",
             "id": "back_btn",
             "templateId": "BACK_BUTTON",
             "position": [20, 20]

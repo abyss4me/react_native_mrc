@@ -1,19 +1,21 @@
 {
   "expo": {
-    "name": "react-native-mrc",
-    "slug": "react-native-mrc",
+    "name": "MRC Engine",
+    "slug": "mrc-engine",
     "version": "1.0.0",
     "orientation": "landscape",
     "icon": "./assets/images/icon.png",
-    "scheme": "reactnativemrc",
+    "scheme": "mrcengine",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "bundleIdentifier": "com.playworks.mrcengine",
       "supportsTablet": true,
       "requireFullScreen": true,
       "infoPlist": {
         "UIRequiresFullScreen": true
-      }
+      },
+      "associatedDomains": ["applinks:h5.play.works"]
     },
     "android": {
       "resizeableActivity": true,

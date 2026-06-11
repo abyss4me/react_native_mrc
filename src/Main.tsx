@@ -45,12 +45,29 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 
 const DEFAULT_DEV_SCREEN = SCREEN.DEV;
 
+/**
+ * Extracts the ?p= parameter from a deep-link URL.
+ *
+ * Using a regex instead of new URL() so the function works with every
+ * URL form without relying on exception-based flow control:
+ *  - mrcengine://host?p=VALUE  (standard authority URL)
+ *  - mrcengine:?p=VALUE        (opaque-path URL — new URL().searchParams is empty for these)
+ *  - https://h5.play.works/path?p=VALUE  (Universal Link passthrough)
+ */
+function extractPParam(url: string): string | null {
+    const match = url.match(/[?&]p=([^&]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
 export default function Main() {
     const [isReady, setIsReady] = useState(false);
     // Set initial screen based on the platform
     const [currentScreenId, setCurrentScreenId] = useState<string>(
         Platform.OS === 'web' ? DEFAULT_DEV_SCREEN : SCREEN.HOME
     );
+    // Increments on every LOAD_SCREEN message — even when screenId hasn't changed.
+    // ScreenRenderer depends on this so unlockInput() fires even on same-screen reloads.
+    const [loadScreenSignal, setLoadScreenSignal] = useState(0);
     const [initialRoomId, setInitialRoomId] = useState<string | null>(null);
     const [configUrl, setConfigUrl] = useState<string | null>(null);
     const [layouts, setLayouts] = useState<LayoutConfig>(
@@ -63,6 +80,10 @@ export default function Main() {
     // Used to distinguish a background reconnect (server won't re-send config) from
     // the initial connection (server WILL send config — no need to navigate away from TransitionScreen).
     const hasReceivedConfig = useRef(false);
+
+    // Populated by NetworkProvider — lets fetchLayout call disconnect() even though Main is
+    // a parent of NetworkProvider and therefore cannot use useConnection() directly.
+    const networkDisconnectRef = useRef<(() => void) | null>(null);
 
     //Apply keep-awake setting dynamically from layout JSON
     useEffect(() => {
@@ -87,26 +108,19 @@ export default function Main() {
     const { top, bottom, left, right } = useSafeAreaInsets();
     const shouldSafeArea = layouts?.settings?.useSafeArea === true;
 
-    // Deep linking for cold starts and warm starts
+    // Deep linking — warm starts (app already running when QR code is scanned).
+    // Cold starts are handled inside prepare() below so isReady is only set to
+    // true AFTER the initial URL is known, preventing a HomeScreen flash.
     useEffect(() => {
-        const handleUrl = (url: string | null) => {
-            if (!url) return;
-            try {
-                const parsedUrl = new URL(url);
-                const p = parsedUrl.searchParams.get('p');  //p - parameter which contains hashed roomId & hostname
-                if (p) {
-                    hasReceivedConfig.current = false;
-                    setInitialRoomId(p);
-                    setConfigUrl(null);
-                    setCurrentScreenId(SCREEN.TRANSITION);
-                }
-            } catch (error) {
-                console.error("Invalid deep link URL:", error);
+        const subscription = Linking.addEventListener('url', (event) => {
+            const p = extractPParam(event.url);
+            if (p) {
+                hasReceivedConfig.current = false;
+                setInitialRoomId(p);
+                setConfigUrl(null);
+                setCurrentScreenId(SCREEN.TRANSITION);
             }
-        };
-
-        Linking.getInitialURL().then(handleUrl);
-        const subscription = Linking.addEventListener('url', (event) => handleUrl(event.url));
+        });
         return () => subscription.remove();
     }, []);
 
@@ -117,9 +131,19 @@ export default function Main() {
 
         const fetchLayout = async () => {
             setIsLoadingConfig(true);
-            console.log(`Fetching remote layout from: ${configUrl}`);
+            // Append a timestamp to bust iOS NSURLCache — the native layer ignores
+            // the `cache` fetch option but does respect Cache-Control request headers.
+            const separator = configUrl.includes('?') ? '&' : '?';
+            const bustUrl = `${configUrl}${separator}_t=${Date.now()}`;
+            console.log(`Fetching remote layout from: ${bustUrl}`);
             try {
-                const response = await fetch(configUrl, { signal: controller.signal });
+                const response = await fetch(bustUrl, {
+                    signal: controller.signal,
+                    headers: {
+                        'Cache-Control': 'no-store, no-cache',
+                        'Pragma': 'no-cache',
+                    },
+                });
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -128,6 +152,11 @@ export default function Main() {
                 // Resolve all relative asset URLs in-place BEFORE rendering,
                 try {
                     if (!checkLayoutCompatibility(remoteLayouts)) {
+                        // Version mismatch — disconnect so the socket is fully cleaned up.
+                        // Without this, the still-alive socket can fire onUserDisconnected
+                        // when the OS suspends it (e.g. after backgrounding), causing the
+                        // DisconnectOverlay to appear on top of the HomeScreen error message.
+                        networkDisconnectRef.current?.();
                         // Fall back to Home Screen if layout is incompatible with current app version
                         const defaultScreen = SCREEN.HOME;
                         setConfigLoadingError(true)
@@ -174,7 +203,26 @@ export default function Main() {
                     console.warn("Asset preloading warning:", e);
                 }
             } else {
-                // Mobile: hide the native splash screen immediately — HomeScreen has no remote assets to wait for
+                // Mobile: resolve the cold-start deep-link URL BEFORE revealing the UI.
+                // This guarantees isReady becomes true only after the initial screen is
+                // already set to TRANSITION (if a ?p= param was present), so there is
+                // no HomeScreen flash when the app is launched via a QR-code / custom-scheme link.
+                try {
+                    const initialUrl = await Linking.getInitialURL();
+                    if (initialUrl) {
+                        const p = extractPParam(initialUrl);
+                        if (p) {
+                            hasReceivedConfig.current = false;
+                            setInitialRoomId(p);
+                            setConfigUrl(null);
+                            setCurrentScreenId(SCREEN.TRANSITION);
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Error processing initial deep-link URL:", e);
+                }
+
+                // Hide the native splash screen — HomeScreen has no remote assets to wait for
                 try {
                     await SplashScreen.hideAsync();
                 } catch (e) {
@@ -407,10 +455,14 @@ export default function Main() {
         <LayoutContext.Provider value={layoutContextValue}>
         <InputGuardProvider>
         <NetworkProvider
-            onScreenChange={setCurrentScreenId}
+            onScreenChange={useCallback((screenId: string) => {
+                setCurrentScreenId(screenId);
+                setLoadScreenSignal(s => s + 1);
+            }, [])}
             layouts={layouts}
             onReconnected={handleReconnected}
             onConfigUrlReceived={handleConfigUrlReceived}
+            disconnectRef={networkDisconnectRef}
         >
             <AndroidBackHandler
                 currentScreenId={currentScreenId}
@@ -432,7 +484,7 @@ export default function Main() {
                                 setConfigUrl(null);
                             }} />
                         ) : (
-                            <ScreenRenderer screenConfig={currentConfig} />
+                            <ScreenRenderer screenConfig={currentConfig} loadScreenSignal={loadScreenSignal} />
                         )}
                         <DisconnectOverlay hidden={currentScreenId === SCREEN.TRANSITION} />
                     </>

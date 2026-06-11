@@ -60,6 +60,7 @@ export const MessageTypes = {
     // Server -> Client
     LOAD_SCREEN:            "LOAD_SCREEN",
     PATCH_STATE:            "PATCH_STATE",
+    UNLOCK_SCREEN:          "UNLOCK_SCREEN",
     TRIGGER_HAPTICS:        "TRIGGER_HAPTICS",
     SHOW_ERROR:             "SHOW_ERROR",
     GAME_STATE:             "gameState",
@@ -98,6 +99,18 @@ export interface LoadScreenMessage {
 export interface PatchStateMessage {
     type: typeof MessageTypes.PATCH_STATE;
     data: GameState;
+}
+
+/**
+ * Message: UNLOCK_SCREEN
+ * Releases the input guard (screen lock) without changing the current screen.
+ * Use this when the game handles a controller action (e.g. opens a popup) but
+ * the controller layout stays the same — no LOAD_SCREEN will be sent.
+ *
+ * Wire format: `{ "type": "UNLOCK_SCREEN" }`
+ */
+export interface UnlockScreenMessage {
+    type: typeof MessageTypes.UNLOCK_SCREEN;
 }
 
 /**
@@ -172,6 +185,7 @@ export interface ClearConnectionErrorMessage {
 export type ServerMessage =
     | LoadScreenMessage
     | PatchStateMessage
+    | UnlockScreenMessage
     | ConnectionErrorMessage
     | GameStateMessage
     | TriggerHapticsMessage

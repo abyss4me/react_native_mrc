@@ -67,9 +67,13 @@ export const InputGuardProvider: React.FC<{ children: React.ReactNode }> = ({ ch
  *
  * Lock lifecycle:
  *  - LOCK:   Button with `lockScreen: true` calls `lockInput()` on `pressIn` — synchronous, instant.
- *            A safety timeout starts — auto-unlocks after LOCK_SAFETY_TIMEOUT_MS if no LOAD_SCREEN arrives.
- *  - UNLOCK: `ScreenRenderer` calls `unlockInput()` via `useEffect` when `screenConfig` prop changes.
- *            This cancels the safety timer.
+ *            A safety timeout starts — auto-unlocks after LOCK_SAFETY_TIMEOUT_MS if no response arrives.
+ *  - UNLOCK (screen change): `ScreenRenderer` calls `unlockInput()` when `loadScreenSignal` changes.
+ *            `loadScreenSignal` increments on every LOAD_SCREEN message (even same-screen reloads).
+ *  - UNLOCK (no screen change): game sends `{ "type": "UNLOCK_SCREEN" }` — `NetworkProvider` calls
+ *            `unlockInput()` directly. Use this when the game handles the action without switching
+ *            screens (e.g. opens a popup on the game side).
+ *  - UNLOCK (fallback): safety timeout fires if neither of the above arrives in time.
  */
 export const useInputGuard = (): InputGuardContextType => {
     const ctx = useContext(InputGuardContext);

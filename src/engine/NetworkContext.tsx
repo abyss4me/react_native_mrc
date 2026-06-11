@@ -5,6 +5,7 @@ import { LayoutConfig, ElementConfig, ScreenConfig } from '../types/LayoutTypes'
 import { triggerHaptics, showError } from '../services/FeedbackService';
 import { resolveSetScreen, resolveUpdateComponents, ResolverContext } from './ComponentStateResolver';
 import { useAppLifecycle } from '../hooks/useAppLifecycle';
+import { useInputGuard } from './InputGuardContext';
 
 // ─── Server Data Context ─────────────────────────────────────────────────────
 // Changes frequently (every server update). Components that only need
@@ -37,6 +38,12 @@ interface Props {
     onScreenChange: (screenId: string) => void;
     onConfigUrlReceived?: (url: string) => void;
     onReconnected?: () => void;
+    /**
+     * When provided, NetworkProvider populates this ref with its disconnect function.
+     * Allows parent components (e.g. Main) that live outside the context tree to
+     * imperatively disconnect — e.g. after a failed version-compatibility check.
+     */
+    disconnectRef?: React.RefObject<(() => void) | null>;
 }
 
 interface AppController {
@@ -44,10 +51,11 @@ interface AppController {
     onConnectionEstablished: () => void;
 }
 
-export const NetworkProvider: React.FC<Props> = ({ children, layouts, onScreenChange, onConfigUrlReceived, onReconnected }) => {
+export const NetworkProvider: React.FC<Props> = ({ children, layouts, onScreenChange, onConfigUrlReceived, onReconnected, disconnectRef }) => {
     const [serverData, setServerData] = useState<GameState>({});
     const [isDisconnected, setIsDisconnected] = useState(false);
     const [connectionError, setConnectionError] = useState<string | null>(null);
+    const { unlockInput } = useInputGuard();
 
     const onScreenChangeRef = useRef(onScreenChange);
     const onConfigUrlReceivedRef = useRef(onConfigUrlReceived);
@@ -122,6 +130,7 @@ export const NetworkProvider: React.FC<Props> = ({ children, layouts, onScreenCh
             switch (msg.type) {
                 case MessageTypes.LOAD_SCREEN:            handleLoadScreen(data as LoadScreenMessage['data']); break;
                 case MessageTypes.PATCH_STATE:            handlePatchState(data as PatchStateMessage['data']); break;
+                case MessageTypes.UNLOCK_SCREEN:          unlockInput(); break;
                 case MessageTypes.TRIGGER_HAPTICS:        triggerHaptics(data as TriggerHapticsMessage['data']); break;
                 case MessageTypes.SHOW_ERROR:             showError(data as ShowErrorToastMessage['data']); break;
                 case MessageTypes.GAME_STATE:             handleGameState(data as GameStateMessage['data']); break;
@@ -142,6 +151,18 @@ export const NetworkProvider: React.FC<Props> = ({ children, layouts, onScreenCh
             onConnectionEstablished: ()                   => appControllerRef.current?.onConnectionEstablished(),
         });
     }
+
+    // Expose disconnect to callers outside the provider tree (e.g. Main after a failed
+    // version-compatibility check). managerRef is stable for the lifetime of the provider.
+    useEffect(() => {
+        if (disconnectRef) {
+            disconnectRef.current = () => managerRef.current?.disconnect();
+        }
+        return () => {
+            if (disconnectRef) disconnectRef.current = null;
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // intentionally empty — managerRef and disconnectRef are stable refs
 
     // Cleanup on unmount only
     useEffect(() => {

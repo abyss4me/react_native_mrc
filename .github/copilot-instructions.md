@@ -16,11 +16,17 @@ If I ask to "prepare a release":
 - Increment the "version" field inside the "project" object in `config.json`.
 - Use Semantic Versioning: MAJOR (breaking), MINOR (feat), PATCH (fix).
 
-### Step B: Update README.md
-- Find the "Build history:" section.
-- Add a new entry at the top: `[vX.Y.Z] - YYYY-MM-DD: <Short Summary>`.
-- List changes based on the latest commits as bullet points.
-- **CRITICAL**: Do NOT modify or touch the "## Build Description" block. It is managed by an external generator.
+### Step B: Update RELEASES.md
+- Open `RELEASES.md` in the project root.
+- Add a new entry **at the top** (below the header block), following this format:
+  ```
+  ## [vX.Y.Z] - YYYY-MM-DD: <Short Summary>
+
+  ### Added / Changed / Fixed / Removed
+  - bullet points based on the latest commits
+  ```
+- Use Conventional Commit types to group bullets: `feat` → Added, `fix` → Fixed, `refactor`/`perf` → Changed, breaking → Removed/Breaking.
+- **Do NOT modify `README.md`** for build history. The `## Build Description` block in README is managed by an external generator and must never be touched.
 
 ### Step C: Git Tag
 - Generate the command: `git tag v<X.Y.Z>`
@@ -29,7 +35,25 @@ If I ask to "prepare a release":
 ## 3. Breaking Changes
 - Add `!` after the scope if changes break the API or existing functionality (e.g., `feat(ui)!: redesign navigation`).
 
-## 4. Pre-Push Gate — Unit Tests
+## 4. File Naming Conventions
+When creating new files, follow these rules:
+
+| Category | Convention | Examples |
+|----------|------------|---------|
+| React components (`.tsx`) | **PascalCase** | `Button.tsx`, `HomeScreen.tsx`, `ScreenRenderer.tsx` |
+| React hooks (`.ts`) | **camelCase** + `use` prefix | `useAppLifecycle.ts`, `useUIScale.ts` |
+| Classes / Services (`.ts`) | **PascalCase** | `ClientManager.ts`, `FeedbackService.ts`, `AssetsLoader.ts` |
+| Utility modules / multi-export (`.ts`) | **PascalCase** | `LayoutUtils.ts`, `ComponentStateResolver.ts`, `LayoutContext.ts` |
+| Type definition files (`.ts`) | **PascalCase** | `LayoutTypes.ts`, `ProtocolTypes.ts` |
+| Single-function utility files (`.ts`) | **camelCase** | `applyServerData.ts`, `throttledSend.ts`, `resolveBackground.ts` |
+| Constants files | **camelCase** | `constants.ts` |
+| Barrel / index files | **lowercase** | `index.tsx` |
+
+**Key rule:**
+- Use **PascalCase** if the file is a React component, a class, a service, or a module with multiple public exports.
+- Use **camelCase** if the file exports a single function, a hook, or pure constants.
+
+## 5. Pre-Push Gate — Unit Tests
 Before running `git push`, you MUST run the full test suite:
 ```
 npx jest --no-coverage
